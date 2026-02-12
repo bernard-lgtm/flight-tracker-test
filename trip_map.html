@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foreign Trip Visualization</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #1a1a1a; color: white; overflow: hidden; }
+        
+        #map { height: 100vh; width: 100vw; z-index: 1; background: #242424; }
+
+        /* General Overlay Style */
+        .overlay {
+            position: absolute;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 8px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Top Right: Cost Counter */
+        #cost-counter {
+            top: 15px;
+            right: 15px;
+            text-align: right;
+            max-width: 40%;
+        }
+        #cost-label { font-size: 0.75rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;}
+        #total-spent { font-size: 1.5rem; font-weight: bold; color: #4ade80; font-family: monospace; }
+
+        /* Top Left: Trip Info */
+        #trip-info {
+            top: 15px;
+            left: 15px;
+            max-width: 320px;
+            transition: opacity 0.3s;
+        }
+        .flight-badge { 
+            background: #3b82f6; color: white; padding: 2px 6px; 
+            border-radius: 4px; font-size: 0.75rem; font-weight: bold; 
+            display: inline-block; margin-bottom: 4px;
+        }
+        .trip-date { color: #aaa; font-size: 0.85rem; margin-bottom: 4px; }
+        .trip-dest { font-size: 1.25rem; font-weight: bold; margin-bottom: 6px; color: #fff; line-height: 1.2; }
+        .trip-detail { font-size: 0.9rem; line-height: 1.4; color: #ddd; }
+
+        /* Bottom: Timeline */
+        #timeline-container {
+            bottom: 20px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Controls */
+        .controls-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+        .play-btn {
+            background: #fff; border: none; padding: 6px 16px; border-radius: 20px;
+            cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: background 0.2s;
+            color: #000;
+        }
+        .play-btn:hover { background: #ddd; }
+        
+        #timeline-date-display { font-family: monospace; font-size: 1rem; color: #ddd; }
+
+        /* Slider */
+        input[type=range] {
+            width: 100%; -webkit-appearance: none; background: transparent; margin: 0;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+            background: #ffffff; cursor: pointer; margin-top: -7px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: #555; border-radius: 2px;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            #trip-info { max-width: 60%; font-size: 0.9em; }
+            .trip-dest { font-size: 1.1rem; }
+            #cost-counter { max-width: 35%; }
+            #total-spent { font-size: 1.2rem; }
+            #cost-label { font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div id="trip-info" class="overlay">
+        <div class="trip-date" id="info-date">2014 - 2017</div>
+        <div class="trip-dest" id="info-dest">Foreign Trips Timeline</div>
+        <div class="trip-detail" id="info-desc">
+            Visualizing the travel timeline. <br>
+            <span style="color:#aaa; font-size:0.85em; margin-top:5px; display:block;">Click 'Play' to start.</span>
+        </div>
+    </div>
+
+    <div id="cost-counter" class="overlay">
+        <div id="cost-label">Cumulative Cost</div>
+        <div id="total-spent">R 0</div>
+    </div>
+
+    <div id="timeline-container" class="overlay">
+        <div class="controls-row">
+            <button id="play-btn" class="play-btn">Play Timeline</button>
+            <span id="timeline-date-display">Start</span>
+        </div>
+        <input type="range" id="timeline-slider" min="-1" max="0" value="-1" step="1">
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- DATASET ---
+        // Extracted from Molefe_Palcocap_ForeignTrips.pdf
+        const trips = [
+            {
+                date: "2014-06-08",
+                dest: "USA, then UK",
+                coords: [40.7128, -74.0060], 
+                cost: 75000,
+                flight: "SA203",
+                details: "JHB -> NY -> London -> JHB"
+            },
+            {
+                date: "2014-08-31",
+                dest: "Tanzania",
+                coords: [-6.7924, 39.2083], 
+                cost: 28000,
+                flight: "SA186",
+                details: "JHB -> Dar es Salaam -> JHB"
+            },
+            {
+                date: "2014-09-13",
+                dest: "China, Hong Kong",
+                coords: [1.3521, 103.8198],
+                cost: 11500,
+                flight: "SQ479",
+                details: "JHB -> Singapore -> HK -> JHB"
+            },
+            {
+                date: "2014-10-05",
+                dest: "Germany, USA",
+                coords: [50.1109, 8.6821], 
+                cost: 16000,
+                flight: "LH573",
+                details: "JHB -> Frankfurt ... NY -> JHB"
+            },
+            {
+                date: "2014-11-22",
+                dest: "UK",
+                coords: [51.5074, -0.1278], 
+                cost: 18000,
+                flight: "BA54",
+                details: "JHB -> London -> JHB"
+            },
+            {
+                date: "2014-12-02",
+                dest: "Mauritius, China",
+                coords: [-20.3484, 57.5522], 
+                cost: 17100,
+                flight: "MK852",
+                details: "JHB -> Mauritius ... HK -> JHB"
+            },
+            {
+                date: "2015-01-17",
+                dest: "Germany",
+                coords: [50.1109, 8.6821], 
+                cost: 21500,
+                flight: "LH573",
+                details: "JHB -> Frankfurt -> JHB"
+            },
+            {
+                date: "2015-02-05",
+                dest: "Brazil",
+                coords: [-23.5505, -46.6333], 
+                cost: 7100,
+                flight: "SA222",
+                details: "JHB -> Sao Paulo -> JHB"
+            },
+            {
+                date: "2015-06-29",
+                dest: "UK (Wimbledon)",
+                coords: [51.5074, -0.1278], 
+                cost: 236000,
+                flight: "SA236",
+                details: "Includes R117k for tickets."
+            },
+            {
+                date: "2015-09-12",
+                dest: "Germany",
+                coords: [50.1109, 8.6821], 
+                cost: 36300,
+                flight: "SA260",
+                details: "JHB -> Frankfurt -> JHB"
+            },
+            {
+                date: "2015-10-01",
+                dest: "USA",
+                coords: [40.7128, -74.0060], 
+                cost: 134000,
+                flight: "SA203",
+                details: "JHB -> NY -> JHB"
+            },
+            {
+                date: "2015-11-04",
+                dest: "UK",
+                coords: [51.5074, -0.1278], 
+                cost: 5000,
+                flight: "SA234",
+                details: "JHB -> London -> JHB"
+            },
+            {
+                date: "2016-03-30",
+                dest: "Tanzania, UAE",
+                coords: [25.2048, 55.2708], 
+                cost: 46800,
+                flight: "SA186",
+                details: "JHB -> Dar es Salaam -> Dubai"
+            },
+            {
+                date: "2016-05-25",
+                dest: "UK, USA",
+                coords: [51.5074, -0.1278], 
+                cost: 83100,
+                flight: "BA054",
+                details: "JHB -> London -> JHB"
+            },
+            {
+                date: "2016-07-07",
+                dest: "USA (via Dakar)",
+                coords: [40.7128, -74.0060], 
+                cost: 38000,
+                flight: "SA207",
+                details: "JHB -> Dakar -> Accra -> JHB"
+            },
+            {
+                date: "2016-09-09",
+                dest: "USA",
+                coords: [33.7490, -84.3880], 
+                cost: 42900,
+                flight: "DL201",
+                details: "JHB -> Atlanta -> JHB"
+            },
+            {
+                date: "2016-10-10",
+                dest: "India",
+                coords: [28.6139, 77.2090], 
+                cost: 31600,
+                flight: "EY603",
+                details: "JHB -> Abu Dhabi -> Delhi"
+            },
+            {
+                date: "2017-10-14",
+                dest: "Mozambique",
+                coords: [-25.9692, 32.5732], 
+                cost: 4750,
+                flight: "SA142",
+                details: "JHB -> Maputo -> JHB"
+            }
+        ];
+
+        const HOME_COORDS = [-26.2041, 28.0473];
+
+        // --- MAP INITIALIZATION ---
+        // ScrollWheelZoom disabled for article embedding safety
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: true,
+            scrollWheelZoom: false 
+        }).setView([20, 0], 2);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        L.circleMarker(HOME_COORDS, {
+            color: '#4ade80', fillColor: '#4ade80', fillOpacity: 1, radius: 6
+        }).addTo(map).bindPopup("<b>JHB</b>");
+
+        // --- CONTROLS & STATE ---
+        const slider = document.getElementById('timeline-slider');
+        const playBtn = document.getElementById('play-btn');
+        const dateDisplay = document.getElementById('timeline-date-display');
+        const totalSpentDisplay = document.getElementById('total-spent');
+        
+        const infoDate = document.getElementById('info-date');
+        const infoDest = document.getElementById('info-dest');
+        const infoDesc = document.getElementById('info-desc');
+
+        let isPlaying = false;
+        let playInterval;
+        let mapLayers = []; 
+
+        slider.max = trips.length - 1;
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(amount);
+        }
+
+        function clearMapLayers() {
+            mapLayers.forEach(layer => map.removeLayer(layer));
+            mapLayers = [];
+        }
+
+        function renderState(index) {
+            clearMapLayers();
+            let runningTotal = 0;
+
+            for (let i = 0; i <= index; i++) {
+                const trip = trips[i];
+                runningTotal += trip.cost;
+                
+                // Line
+                const line = L.polyline([HOME_COORDS, trip.coords], {
+                    color: i === index ? '#3b82f6' : '#555',
+                    weight: i === index ? 3 : 1,
+                    dashArray: '5, 10',
+                    opacity: i === index ? 1 : 0.5
+                }).addTo(map);
+                mapLayers.push(line);
+
+                // Marker
+                const marker = L.circleMarker(trip.coords, {
+                    color: i === index ? '#ef4444' : '#888',
+                    fillColor: i === index ? '#ef4444' : '#888',
+                    fillOpacity: 0.8,
+                    radius: i === index ? 6 : 3
+                }).addTo(map);
+                mapLayers.push(marker);
+            }
+
+            totalSpentDisplay.innerText = formatCurrency(runningTotal);
+            
+            if (index >= 0) {
+                const currentTrip = trips[index];
+                infoDate.innerText = currentTrip.date;
+                infoDest.innerText = currentTrip.dest;
+                infoDesc.innerHTML = `<span class="flight-badge">${currentTrip.flight}</span> ${currentTrip.details}<br>Trip Cost: <b>${formatCurrency(currentTrip.cost)}</b>`;
+                dateDisplay.innerText = currentTrip.date;
+                
+                // Auto Pan
+                if(isPlaying) {
+                    const midLat = (HOME_COORDS[0] + currentTrip.coords[0]) / 2;
+                    const midLon = (HOME_COORDS[1] + currentTrip.coords[1]) / 2;
+                    map.flyTo([midLat, midLon], 2, { duration: 1.5 });
+                }
+            } else {
+                // Reset
+                infoDate.innerText = "2014 - 2017";
+                infoDest.innerText = "Foreign Trips";
+                infoDesc.innerHTML = "Visualizing the travel timeline.<br><span style='color:#aaa; font-size:0.85em;'>Click 'Play' to start.</span>";
+                dateDisplay.innerText = "Start";
+                totalSpentDisplay.innerText = "R 0";
+                map.flyTo([20, 0], 2);
+            }
+        }
+
+        function nextStep() {
+            let nextVal = parseInt(slider.value) + 1;
+            if (nextVal < trips.length) {
+                slider.value = nextVal;
+                renderState(nextVal);
+            } else {
+                pause();
+            }
+        }
+
+        function play() {
+            isPlaying = true;
+            playBtn.innerText = "Pause";
+            if (parseInt(slider.value) === trips.length - 1) {
+                slider.value = -1;
+                renderState(-1);
+            }
+            playInterval = setInterval(nextStep, 2200);
+        }
+
+        function pause() {
+            isPlaying = false;
+            playBtn.innerText = "Play";
+            clearInterval(playInterval);
+        }
+
+        playBtn.addEventListener('click', () => isPlaying ? pause() : play());
+        
+        slider.addEventListener('input', (e) => {
+            pause();
+            renderState(parseInt(e.target.value));
+        });
+
+        // Initialize
+        renderState(-1);
+    </script>
+</body>
+</html>

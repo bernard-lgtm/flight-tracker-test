@@ -3,183 +3,423 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYT Style: Foreign Trip Visualization</title>
+    <title>NYT Style: Travel Investigation Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* --- NYT TYPOGRAPHY & RESET --- */
+        /* ============================================
+           GLOBAL RESET & TYPOGRAPHY
+           ============================================ */
+        * { box-sizing: border-box; }
+        
         body { 
             margin: 0; 
             padding: 0; 
-            font-family: 'Georgia', 'Times New Roman', Times, serif; 
-            background: #fdfdfd; 
+            font-family: Georgia, 'Times New Roman', Times, serif; 
+            background: #fafafa; 
             color: #121212; 
             overflow: hidden; 
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.5px; }
+        h1, h2, h3 { 
+            margin: 0; 
+            font-weight: 700; 
+            letter-spacing: -0.5px; 
+        }
         
-        /* Utility for Sans-Serif Data */
-        .sans-serif { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-
-        #map { height: 100vh; width: 100vw; z-index: 1; background: #e0e0e0; }
-
-        /* --- LAYOUT CARDS --- */
-        .nyt-card {
-            position: absolute;
-            z-index: 1000;
-            background: #ffffff;
-            border: 1px solid #ccc;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 20px;
+        .sans-serif { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
         }
 
-        /* Top Left: The Narrative Box */
-        #story-container {
-            top: 20px;
-            left: 20px;
-            width: 340px;
-            border-top: 4px solid #000; /* Strong editorial header line */
+        /* ============================================
+           MAP CONTAINER
+           ============================================ */
+        #map { 
+            height: 100vh; 
+            width: 100vw; 
+            z-index: 1; 
+            background: #e8e8e8; 
+        }
+
+        /* ============================================
+           CUSTOM MAP LABELS
+           ============================================ */
+        .country-label {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-size: 9px;
+            text-shadow: 
+                1px 1px 0 rgba(255,255,255,0.9), 
+                -1px -1px 0 rgba(255,255,255,0.9), 
+                1px -1px 0 rgba(255,255,255,0.9), 
+                -1px 1px 0 rgba(255,255,255,0.9);
+            white-space: nowrap;
+            pointer-events: none; 
+        }
+
+        /* ============================================
+           ANIMATED FLIGHT MARKER
+           ============================================ */
+        .flight-marker {
+            width: 10px;
+            height: 10px;
+            background: #b91c1c;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(185, 28, 28, 0.5);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.3); 
+                opacity: 0.8;
+            }
+        }
+
+        /* ============================================
+           BOTTOM CONTROL PANEL
+           ============================================ */
+        #bottom-panel {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 820px;
+            z-index: 1000;
+            padding: 24px 28px 22px;
+            background: #ffffff;
+            border-radius: 2px;
+            box-shadow: 
+                0 2px 8px rgba(0,0,0,0.08),
+                0 8px 24px rgba(0,0,0,0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        #bottom-panel:hover {
+            box-shadow: 
+                0 4px 12px rgba(0,0,0,0.1),
+                0 12px 32px rgba(0,0,0,0.15);
+        }
+
+        /* ============================================
+           PANEL HEADER
+           ============================================ */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 14px;
+        }
+
+        .header-left { 
+            flex: 1; 
+            padding-right: 24px; 
+        }
+        
+        .header-right { 
+            text-align: right; 
+            min-width: 140px;
         }
 
         .kicker {
             font-size: 0.65rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.2px;
             font-weight: 700;
-            color: #a81817; /* NYT Red */
-            margin-bottom: 8px;
+            color: #b91c1c;
             display: block;
+            margin-bottom: 6px;
         }
 
         .headline {
-            font-size: 1.6rem;
-            line-height: 1.1;
-            margin-bottom: 12px;
+            font-size: 1.5rem;
+            line-height: 1.2;
+            margin-bottom: 5px;
             color: #000;
+            transition: color 0.3s ease;
         }
 
         .date-line {
-            font-size: 0.85rem;
+            font-size: 0.875rem;
             color: #666;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
             font-style: italic;
-        }
-
-        .story-text {
-            font-size: 0.95rem;
-            line-height: 1.5;
-            color: #333;
-        }
-
-        .flight-info {
-            background: #f0f0f0;
-            padding: 8px 10px;
-            margin-top: 10px;
-            border-left: 3px solid #666;
-            font-size: 0.85rem;
-        }
-
-        /* Top Right: The Data Ticker */
-        #cost-container {
-            top: 20px;
-            right: 20px;
-            text-align: right;
-            border-bottom: 4px solid #000;
-            padding: 15px 20px;
+            margin-top: 2px;
         }
 
         .metric-label {
             font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
             color: #666;
-            margin-bottom: 4px;
+            display: block;
+            margin-bottom: 6px;
         }
 
         .metric-value {
-            font-size: 1.8rem;
+            font-size: 1.9rem;
             font-weight: 700;
             color: #121212;
-            font-variant-numeric: tabular-nums; /* Monospaced numbers */
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
         }
 
-        /* Bottom: Timeline Control */
-        #controls-container {
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60%;
-            max-width: 600px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 12px 20px;
-            border-radius: 40px; /* Pill shape */
-        }
-
-        /* Custom Button */
-        .play-btn {
-            background: #121212;
-            color: #fff;
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            transition: background 0.2s;
-        }
-        .play-btn:hover { background: #333; }
-        
-        /* Custom Slider */
-        input[type=range] {
-            flex-grow: 1;
-            -webkit-appearance: none;
-            background: transparent;
-        }
-        input[type=range]:focus { outline: none; }
-        
-        /* Slider Track */
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 2px;
-            background: #ccc;
-            cursor: pointer;
-        }
-        
-        /* Slider Thumb */
-        input[type=range]::-webkit-slider-thumb {
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #a81817;
-            border: 2px solid #fff;
-            cursor: pointer;
-            -webkit-appearance: none;
-            margin-top: -7px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-
-        .timeline-year {
-            font-size: 0.8rem;
-            font-weight: bold;
+        /* ============================================
+           PANEL BODY (NARRATIVE)
+           ============================================ */
+        .panel-body {
+            font-size: 0.925rem;
+            line-height: 1.5;
             color: #333;
-            min-width: 40px;
-            text-align: right;
+            min-height: 54px;
+            transition: opacity 0.3s ease;
         }
 
-        /* Mobile Responsive */
-        @media (max-width: 600px) {
-            #story-container { width: auto; left: 10px; right: 10px; top: 10px; }
-            #cost-container { top: auto; bottom: 80px; right: 10px; border-bottom: none; border-top: 4px solid #000; padding: 10px; }
-            #controls-container { width: 90%; bottom: 15px; }
-            .headline { font-size: 1.3rem; }
-            .metric-value { font-size: 1.4rem; }
+        .flight-info {
+            display: inline-block;
+            background: #f7f7f7;
+            padding: 6px 10px;
+            margin-top: 6px;
+            border-left: 3px solid #666;
+            font-size: 0.825rem;
+            border-radius: 1px;
+        }
+
+        .instruction-text {
+            color: #b91c1c;
+            font-weight: 600;
+            margin-left: 6px;
+            font-size: 0.875rem;
+        }
+
+        /* ============================================
+           TIMELINE
+           ============================================ */
+        .timeline-wrapper {
+            position: relative;
+            width: 100%;
+            height: 36px;
+            margin-top: 4px;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .timeline-hit-area { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 5; 
+            cursor: pointer;
+        }
+
+        .timeline-hit-area:hover ~ .timeline-track {
+            background: #b0b0b0;
+        }
+
+        .timeline-track { 
+            position: absolute; 
+            top: 17px; 
+            left: 0; 
+            width: 100%; 
+            height: 2px; 
+            background: #d0d0d0; 
+            pointer-events: none;
+            transition: background 0.2s ease;
+        }
+        
+        .timeline-indicator {
+            position: absolute; 
+            top: 13px; 
+            left: 0%; 
+            width: 14px; 
+            height: 14px; 
+            background: #b91c1c; 
+            border: 2px solid #fff; 
+            border-radius: 50%; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25); 
+            z-index: 10; 
+            transform: translateX(-50%); 
+            transition: 
+                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+            cursor: grab;
+        }
+
+        .timeline-indicator:hover {
+            transform: translateX(-50%) scale(1.15);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+        }
+        
+        .timeline-indicator.dragging { 
+            transition: none; 
+            cursor: grabbing;
+            transform: translateX(-50%) scale(1.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .timeline-tooltip {
+            position: absolute; 
+            bottom: 22px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #1a1a1a; 
+            color: #fff; 
+            font-size: 0.7rem; 
+            padding: 5px 10px; 
+            border-radius: 3px; 
+            white-space: nowrap; 
+            font-weight: 600; 
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .timeline-indicator:hover .timeline-tooltip,
+        .timeline-indicator.dragging .timeline-tooltip {
+            opacity: 1;
+        }
+        
+        .timeline-tooltip::after {
+            content: ''; 
+            position: absolute; 
+            top: 100%; 
+            left: 50%; 
+            margin-left: -4px; 
+            border-width: 4px; 
+            border-style: solid; 
+            border-color: #1a1a1a transparent transparent transparent;
+        }
+
+        .year-marker { 
+            position: absolute; 
+            top: 24px; 
+            font-size: 0.7rem; 
+            font-weight: 600; 
+            color: #999; 
+            transform: translateX(-50%); 
+            pointer-events: none; 
+        }
+
+        .year-tick { 
+            position: absolute; 
+            top: 14px; 
+            height: 8px; 
+            width: 1px; 
+            background: #aaa; 
+            pointer-events: none; 
+            transform: translateX(-50%);
+        }
+
+        /* Event dots on timeline */
+        .event-dot {
+            position: absolute;
+            top: 15px;
+            width: 6px;
+            height: 6px;
+            background: #666;
+            border: 1px solid #fff;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 3;
+            transition: all 0.2s ease;
+        }
+
+        .event-dot.active {
+            background: #b91c1c;
+            width: 8px;
+            height: 8px;
+            top: 14px;
+            box-shadow: 0 0 8px rgba(185, 28, 28, 0.6);
+        }
+
+        /* ============================================
+           RESPONSIVE DESIGN
+           ============================================ */
+        @media (max-width: 700px) {
+            #bottom-panel { 
+                width: 94%; 
+                padding: 20px 22px; 
+                bottom: 16px; 
+                gap: 14px;
+            }
+            
+            .headline { 
+                font-size: 1.25rem; 
+            }
+            
+            .metric-value { 
+                font-size: 1.6rem; 
+            }
+            
+            .panel-header { 
+                flex-direction: column; 
+            }
+            
+            .header-right { 
+                text-align: left; 
+                margin-top: 12px; 
+                padding-top: 12px; 
+                border-top: 1px solid #e5e5e5; 
+                width: 100%; 
+            }
+
+            .panel-body {
+                font-size: 0.875rem;
+            }
+
+            .instruction-text {
+                display: block;
+                margin-left: 0;
+                margin-top: 4px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #bottom-panel {
+                padding: 16px 18px;
+            }
+
+            .headline {
+                font-size: 1.1rem;
+            }
+
+            .flight-info {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* ============================================
+           LOADING STATE
+           ============================================ */
+        .loading {
+            opacity: 0;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
         }
     </style>
 </head>
@@ -187,206 +427,592 @@
 
     <div id="map"></div>
 
-    <div id="story-container" class="nyt-card">
-        <span class="kicker sans-serif">The Investigation</span>
-        <div class="headline">Mapping the Foreign Trips</div>
-        <div class="date-line" id="info-date">2014 — 2017</div>
+    <div id="bottom-panel" class="loading">
         
-        <div class="story-text" id="info-desc">
-            An analysis of flight logs reveals a timeline of international travel.
-            <br><br>
-            <span style="color:#888; font-size:0.9em;">Click the play button below to begin the visualization.</span>
+        <div class="panel-header">
+            <div class="header-left">
+                <span class="kicker sans-serif">The Investigation</span>
+                <div class="headline" id="story-headline">Mapping the Foreign Trips</div>
+                <div class="date-line" id="story-date">2014 – 2017</div>
+            </div>
+            <div class="header-right">
+                <span class="metric-label sans-serif">Cumulative Cost</span>
+                <span class="metric-value sans-serif" id="total-spent">R 0</span>
+            </div>
         </div>
-    </div>
 
-    <div id="cost-container" class="nyt-card">
-        <div class="metric-label sans-serif">Cumulative Expenditure</div>
-        <div class="metric-value sans-serif" id="total-spent">R 0</div>
-    </div>
+        <div class="panel-body" id="story-desc">
+            An analysis of flight logs reveals a timeline of international travel.
+            <span class="instruction-text">&larr; Drag timeline or wait for autoplay</span>
+        </div>
 
-    <div id="controls-container" class="nyt-card">
-        <button id="play-btn" class="play-btn">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <input type="range" id="timeline-slider" min="-1" max="0" value="-1" step="1">
-        <span class="timeline-year sans-serif" id="timeline-date-display">Start</span>
+        <div class="timeline-wrapper" id="timeline-wrapper">
+            <div class="timeline-hit-area"></div>
+            <div class="timeline-track"></div>
+            <div class="timeline-indicator" id="active-marker">
+                <div class="timeline-tooltip sans-serif" id="tooltip-date">Start</div>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // --- DATASET ---
-        const trips = [
-            { date: "2014-06-08", dest: "United States, United Kingdom", coords: [40.7128, -74.0060], cost: 75000, flight: "SA203", details: "JHB to New York, returning via London." },
-            { date: "2014-08-31", dest: "Tanzania", coords: [-6.7924, 39.2083], cost: 28000, flight: "SA186", details: "Regional travel to Dar es Salaam." },
-            { date: "2014-09-13", dest: "China & Hong Kong", coords: [1.3521, 103.8198], cost: 11500, flight: "SQ479", details: "Travel via Singapore to Hong Kong." },
-            { date: "2014-10-05", dest: "Germany & USA", coords: [50.1109, 8.6821], cost: 16000, flight: "LH573", details: "Frankfurt connection en route to New York." },
-            { date: "2014-11-22", dest: "United Kingdom", coords: [51.5074, -0.1278], cost: 18000, flight: "BA54", details: "Direct travel to London." },
-            { date: "2014-12-02", dest: "Mauritius & China", coords: [-20.3484, 57.5522], cost: 17100, flight: "MK852", details: "Multi-leg trip involving Mauritius and Hong Kong." },
-            { date: "2015-01-17", dest: "Germany", coords: [50.1109, 8.6821], cost: 21500, flight: "LH573", details: "Return trip to Frankfurt." },
-            { date: "2015-02-05", dest: "Brazil", coords: [-23.5505, -46.6333], cost: 7100, flight: "SA222", details: "Travel to Sao Paulo." },
-            { date: "2015-06-29", dest: "United Kingdom (Wimbledon)", coords: [51.5074, -0.1278], cost: 236000, flight: "SA236", details: "High cost attributed to tickets (R117k)." },
-            { date: "2015-09-12", dest: "Germany", coords: [50.1109, 8.6821], cost: 36300, flight: "SA260", details: "Standard travel to Frankfurt." },
-            { date: "2015-10-01", dest: "United States", coords: [40.7128, -74.0060], cost: 134000, flight: "SA203", details: "Direct return flight to New York." },
-            { date: "2015-11-04", dest: "United Kingdom", coords: [51.5074, -0.1278], cost: 5000, flight: "SA234", details: "Short duration trip to London." },
-            { date: "2016-03-30", dest: "Tanzania & UAE", coords: [25.2048, 55.2708], cost: 46800, flight: "SA186", details: "Dar es Salaam continuing to Dubai." },
-            { date: "2016-05-25", dest: "UK & USA", coords: [51.5074, -0.1278], cost: 83100, flight: "BA054", details: "London leg of a multi-destination trip." },
-            { date: "2016-07-07", dest: "USA (via West Africa)", coords: [40.7128, -74.0060], cost: 38000, flight: "SA207", details: "Route via Dakar and Accra." },
-            { date: "2016-09-09", dest: "United States (Atlanta)", coords: [33.7490, -84.3880], cost: 42900, flight: "DL201", details: "Travel to Atlanta, Georgia." },
-            { date: "2016-10-10", dest: "India", coords: [28.6139, 77.2090], cost: 31600, flight: "EY603", details: "Abu Dhabi connection to Delhi." },
-            { date: "2017-10-14", dest: "Mozambique", coords: [-25.9692, 32.5732], cost: 4750, flight: "SA142", details: "Regional flight to Maputo." }
+        /* ============================================
+           CONFIGURATION & CONSTANTS
+           ============================================ */
+        const CONFIG = {
+            HOME_COORDS: [-26.2041, 28.0473], // Johannesburg
+            AUTOPLAY_DELAY: 5500,
+            RESET_DELAY: 3000,
+            MAP_ZOOM: 2,
+            MAP_CENTRE: [10, 15], // Adjusted to keep all destinations visible
+            ANIMATION_DURATION: 2000,
+            ANIMATION_STEPS: 50
+        };
+
+        /* ============================================
+           LOCATION DICTIONARY
+           ============================================ */
+        const LOCATIONS = {
+            JHB: [-26.2041, 28.0473],
+            NYC: [40.7128, -74.0060],
+            London: [51.5074, -0.1278],
+            Tanzania: [-6.7924, 39.2083],
+            Singapore: [1.3521, 103.8198],
+            HongKong: [22.3193, 114.1694],
+            Frankfurt: [50.1109, 8.6821],
+            Mauritius: [-20.3484, 57.5522],
+            SaoPaulo: [-23.5505, -46.6333],
+            Dubai: [25.2048, 55.2708],
+            Dakar: [14.7167, -17.4677],
+            Accra: [5.6037, -0.1870],
+            Atlanta: [33.7490, -84.3880],
+            Delhi: [28.6139, 77.2090],
+            AbuDhabi: [24.4539, 54.3773],
+            Maputo: [-25.9692, 32.5732]
+        };
+
+        /* ============================================
+           TRIP DATA
+           ============================================ */
+        const TRIPS = [
+            { date: "2014-06-08", dest: "US & UK", route: [LOCATIONS.NYC, LOCATIONS.London], cost: 75000, flight: "SA203", details: "JHB to New York, returning via London." },
+            { date: "2014-08-31", dest: "Tanzania", route: [LOCATIONS.Tanzania], cost: 28000, flight: "SA186", details: "Regional travel to Dar es Salaam." },
+            { date: "2014-09-13", dest: "China & HK", route: [LOCATIONS.Singapore, LOCATIONS.HongKong], cost: 11500, flight: "SQ479", details: "Via Singapore to Hong Kong." },
+            { date: "2014-10-05", dest: "Germany & USA", route: [LOCATIONS.Frankfurt, LOCATIONS.NYC], cost: 16000, flight: "LH573", details: "Frankfurt connection en route to New York." },
+            { date: "2014-11-22", dest: "United Kingdom", route: [LOCATIONS.London], cost: 18000, flight: "BA54", details: "Direct travel to London." },
+            { date: "2014-12-02", dest: "Mauritius & China", route: [LOCATIONS.Mauritius, LOCATIONS.HongKong], cost: 17100, flight: "MK852", details: "Multi-leg trip involving Mauritius and Hong Kong." },
+            { date: "2015-01-17", dest: "Germany", route: [LOCATIONS.Frankfurt], cost: 21500, flight: "LH573", details: "Return trip to Frankfurt." },
+            { date: "2015-02-05", dest: "Brazil", route: [LOCATIONS.SaoPaulo], cost: 7100, flight: "SA222", details: "Travel to São Paulo." },
+            { date: "2015-06-29", dest: "UK (Wimbledon)", route: [LOCATIONS.London], cost: 236000, flight: "SA236", details: "High cost attributed to tickets (R117k)." },
+            { date: "2015-09-12", dest: "Germany", route: [LOCATIONS.Frankfurt], cost: 36300, flight: "SA260", details: "Standard travel to Frankfurt." },
+            { date: "2015-10-01", dest: "United States", route: [LOCATIONS.NYC], cost: 134000, flight: "SA203", details: "Direct return flight to New York." },
+            { date: "2015-11-04", dest: "United Kingdom", route: [LOCATIONS.London], cost: 5000, flight: "SA234", details: "Short duration trip to London." },
+            { date: "2016-03-30", dest: "Tanzania & UAE", route: [LOCATIONS.Tanzania, LOCATIONS.Dubai], cost: 46800, flight: "SA186", details: "Dar es Salaam continuing to Dubai." },
+            { date: "2016-05-25", dest: "UK & USA", route: [LOCATIONS.London, LOCATIONS.NYC], cost: 83100, flight: "BA054", details: "London leg of a multi-destination trip." },
+            { date: "2016-07-07", dest: "USA (via W. Africa)", route: [LOCATIONS.Dakar, LOCATIONS.Accra, LOCATIONS.NYC], cost: 38000, flight: "SA207", details: "Route via Dakar and Accra." },
+            { date: "2016-09-09", dest: "USA (Atlanta)", route: [LOCATIONS.Atlanta], cost: 42900, flight: "DL201", details: "Travel to Atlanta, Georgia." },
+            { date: "2016-10-10", dest: "India", route: [LOCATIONS.AbuDhabi, LOCATIONS.Delhi], cost: 31600, flight: "EY603", details: "Abu Dhabi connection to Delhi." },
+            { date: "2017-10-14", dest: "Mozambique", route: [LOCATIONS.Maputo], cost: 4750, flight: "SA142", details: "Regional flight to Maputo." }
         ];
 
-        const HOME_COORDS = [-26.2041, 28.0473];
+        /* ============================================
+           COUNTRY LABELS
+           ============================================ */
+        const COUNTRY_LABELS = [
+            { name: "South Africa", coords: [-29.0, 24.0] },
+            { name: "United States", coords: [39.0, -98.0] },
+            { name: "United Kingdom", coords: [54.0, -4.0] },
+            { name: "China", coords: [35.0, 104.0] },
+            { name: "Germany", coords: [51.0, 10.0] },
+            { name: "Tanzania", coords: [-6.0, 35.0] },
+            { name: "Brazil", coords: [-14.0, -52.0] },
+            { name: "India", coords: [22.0, 79.0] },
+            { name: "Mozambique", coords: [-16.0, 35.0] },
+            { name: "UAE", coords: [24.0, 54.0] },
+            { name: "W. Africa", coords: [10.0, -10.0] }
+        ];
 
-        // --- MAP SETUP (NYT STYLE) ---
-        // Using CartoDB Positron for that clean, journalistic greyscale look
+        /* ============================================
+           MAP INITIALISATION
+           ============================================ */
         const map = L.map('map', {
-            zoomControl: false,
-            attributionControl: false, // Hiding for pure aesthetic, usually kept in footer
-            scrollWheelZoom: false 
-        }).setView([20, 0], 2);
+            zoomControl: false, 
+            attributionControl: false, 
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            touchZoom: false,
+            dragging: false
+        }).setView(CONFIG.MAP_CENTRE, CONFIG.MAP_ZOOM);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
 
-        // Home Marker (Neutral Grey)
-        L.circleMarker(HOME_COORDS, {
-            color: '#333', fillColor: '#333', fillOpacity: 1, radius: 4
+        // Home marker (Johannesburg)
+        L.circleMarker(CONFIG.HOME_COORDS, {
+            color: '#333', 
+            fillColor: '#333', 
+            fillOpacity: 1, 
+            radius: 5,
+            weight: 2
         }).addTo(map);
 
-        // --- CONTROLS & LOGIC ---
-        const slider = document.getElementById('timeline-slider');
-        const playBtn = document.getElementById('play-btn');
-        const dateDisplay = document.getElementById('timeline-date-display');
-        const totalSpentDisplay = document.getElementById('total-spent');
-        
-        const infoDate = document.getElementById('info-date');
-        const infoDest = document.getElementById('headline-dest'); // Dynamic Title
-        const storyContainer = document.querySelector('#story-container .headline');
-        const storyText = document.getElementById('info-desc');
-
-        let isPlaying = false;
-        let playInterval;
-        let mapLayers = []; 
-
-        slider.max = trips.length - 1;
-        
-        // Formatter: "R 10,000"
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(amount);
-        }
-
-        function clearMapLayers() {
-            mapLayers.forEach(layer => map.removeLayer(layer));
-            mapLayers = [];
-        }
-
-        function renderState(index) {
-            clearMapLayers();
-            let runningTotal = 0;
-
-            for (let i = 0; i <= index; i++) {
-                const trip = trips[i];
-                runningTotal += trip.cost;
-                const isCurrent = (i === index);
-                
-                // Line Style: Dashed grey for past, Solid NYT Red implies active route visualization? 
-                // Actually, NYT usually does solid black/grey lines.
-                const line = L.polyline([HOME_COORDS, trip.coords], {
-                    color: isCurrent ? '#a81817' : '#999',
-                    weight: isCurrent ? 2 : 1,
-                    dashArray: isCurrent ? '' : '3, 6',
-                    opacity: isCurrent ? 1 : 0.4
-                }).addTo(map);
-                mapLayers.push(line);
-
-                // Marker Style: Red dot for current, small grey dot for past
-                const marker = L.circleMarker(trip.coords, {
-                    color: '#fff', // White stroke
-                    weight: 1,
-                    fillColor: isCurrent ? '#a81817' : '#999',
-                    fillOpacity: isCurrent ? 1 : 0.5,
-                    radius: isCurrent ? 6 : 3
-                }).addTo(map);
-                mapLayers.push(marker);
-            }
-
-            totalSpentDisplay.innerText = formatCurrency(runningTotal);
-            
-            if (index >= 0) {
-                const currentTrip = trips[index];
-                
-                // Narrative Update
-                storyContainer.innerText = currentTrip.dest;
-                infoDate.innerText = currentTrip.date; // Use a date formatter if desired
-                
-                storyText.innerHTML = `
-                    <div class="flight-info sans-serif">
-                        <strong>Flight ${currentTrip.flight}</strong><br/>
-                        ${currentTrip.details}
-                    </div>
-                    <p>Cost for this leg: <strong>${formatCurrency(currentTrip.cost)}</strong></p>
-                `;
-                
-                dateDisplay.innerText = currentTrip.date.split('-')[0]; // Just the Year
-                
-                if(isPlaying) {
-                    const midLat = (HOME_COORDS[0] + currentTrip.coords[0]) / 2;
-                    const midLon = (HOME_COORDS[1] + currentTrip.coords[1]) / 2;
-                    map.flyTo([midLat, midLon], 2.5, { duration: 1.5, easeLinearity: 0.25 });
-                }
-            } else {
-                // Reset State
-                storyContainer.innerText = "Mapping the Foreign Trips";
-                infoDate.innerText = "2014 — 2017";
-                storyText.innerHTML = `An analysis of flight logs reveals a timeline of international travel.<br><br><span style="color:#888; font-size:0.9em;">Click the play button below to begin.</span>`;
-                dateDisplay.innerText = "Start";
-                totalSpentDisplay.innerText = "R 0";
-                map.flyTo([20, 0], 2);
-            }
-        }
-
-        function nextStep() {
-            let nextVal = parseInt(slider.value) + 1;
-            if (nextVal < trips.length) {
-                slider.value = nextVal;
-                renderState(nextVal);
-            } else {
-                pause();
-            }
-        }
-
-        function play() {
-            isPlaying = true;
-            // Switch Icon to Pause
-            playBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
-            
-            if (parseInt(slider.value) === trips.length - 1) {
-                slider.value = -1;
-                renderState(-1);
-            }
-            playInterval = setInterval(nextStep, 2500); // Slightly slower for readability
-        }
-
-        function pause() {
-            isPlaying = false;
-            // Switch Icon to Play
-            playBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>`;
-            clearInterval(playInterval);
-        }
-
-        playBtn.addEventListener('click', () => isPlaying ? pause() : play());
-        
-        slider.addEventListener('input', (e) => {
-            pause();
-            renderState(parseInt(e.target.value));
+        // Add country labels
+        COUNTRY_LABELS.forEach(label => {
+            const icon = L.divIcon({
+                className: 'country-label',
+                html: label.name,
+                iconSize: [100, 20],
+                iconAnchor: [50, 10]
+            });
+            L.marker(label.coords, { icon, interactive: false }).addTo(map);
         });
 
-        // Initialize
-        renderState(-1);
+        /* ============================================
+           DOM ELEMENTS
+           ============================================ */
+        const DOM = {
+            totalSpent: document.getElementById('total-spent'),
+            headline: document.getElementById('story-headline'),
+            date: document.getElementById('story-date'),
+            description: document.getElementById('story-desc'),
+            timelineWrapper: document.getElementById('timeline-wrapper'),
+            activeMarker: document.getElementById('active-marker'),
+            tooltipDate: document.getElementById('tooltip-date')
+        };
+
+        /* ============================================
+           STATE MANAGEMENT
+           ============================================ */
+        const STATE = {
+            mapLayers: [],
+            isPlaying: true,
+            playTimer: null,
+            currentTripIndex: -1,
+            isDragging: false,
+            animationTimers: [],
+            eventDots: []
+        };
+
+        /* ============================================
+           TIME UTILITIES
+           ============================================ */
+        const TIME = {
+            parseDate: (str) => new Date(str).getTime(),
+            formatDateShort: (timestamp) => {
+                const d = new Date(timestamp);
+                return d.toLocaleDateString('en-GB', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            },
+            startTimestamp: new Date("2014-01-01").getTime(),
+            endTimestamp: new Date("2018-01-01").getTime()
+        };
+
+        TIME.totalDuration = TIME.endTimestamp - TIME.startTimestamp;
+
+        /* ============================================
+           FORMATTING UTILITIES
+           ============================================ */
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-ZA', { 
+                style: 'currency', 
+                currency: 'ZAR', 
+                maximumFractionDigits: 0 
+            }).format(amount);
+        };
+
+        /* ============================================
+           INTERPOLATE BETWEEN TWO POINTS
+           ============================================ */
+        function interpolatePoint(start, end, fraction) {
+            return [
+                start[0] + (end[0] - start[0]) * fraction,
+                start[1] + (end[1] - start[1]) * fraction
+            ];
+        }
+
+        /* ============================================
+           ANIMATE FLIGHT PATH
+           ============================================ */
+        function animateFlightPath(fullPath, isActive, callback) {
+            if (!isActive || STATE.isDragging) {
+                // Draw complete path immediately if not active
+                const line = L.polyline(fullPath, {
+                    color: '#999',
+                    weight: 1,
+                    dashArray: '4, 8',
+                    opacity: 0.35,
+                    smoothFactor: 1
+                }).addTo(map);
+                STATE.mapLayers.push(line);
+                
+                // Add static markers
+                fullPath.slice(1, -1).forEach(coord => {
+                    const marker = L.circleMarker(coord, {
+                        color: '#fff', 
+                        weight: 2,
+                        fillColor: '#999',
+                        fillOpacity: 0.5,
+                        radius: 4
+                    }).addTo(map);
+                    STATE.mapLayers.push(marker);
+                });
+                
+                if (callback) callback();
+                return;
+            }
+
+            // Animated path for active trip
+            const animatedLine = L.polyline([], {
+                color: '#b91c1c',
+                weight: 2.5,
+                opacity: 0.95,
+                smoothFactor: 1
+            }).addTo(map);
+            STATE.mapLayers.push(animatedLine);
+
+            // Create moving marker
+            const movingMarkerIcon = L.divIcon({
+                className: 'flight-marker',
+                iconSize: [10, 10],
+                iconAnchor: [5, 5]
+            });
+            const movingMarker = L.marker(fullPath[0], { icon: movingMarkerIcon }).addTo(map);
+            STATE.mapLayers.push(movingMarker);
+
+            let currentSegment = 0;
+            let currentStep = 0;
+            const stepsPerSegment = Math.floor(CONFIG.ANIMATION_STEPS / (fullPath.length - 1));
+
+            function animateStep() {
+                if (STATE.isDragging || !STATE.isPlaying) {
+                    if (callback) callback();
+                    return;
+                }
+
+                if (currentSegment >= fullPath.length - 1) {
+                    // Animation complete - add final markers
+                    fullPath.slice(1, -1).forEach(coord => {
+                        const marker = L.circleMarker(coord, {
+                            color: '#fff', 
+                            weight: 2,
+                            fillColor: '#b91c1c',
+                            fillOpacity: 1,
+                            radius: 7
+                        }).addTo(map);
+                        STATE.mapLayers.push(marker);
+                    });
+                    
+                    map.removeLayer(movingMarker);
+                    if (callback) callback();
+                    return;
+                }
+
+                const start = fullPath[currentSegment];
+                const end = fullPath[currentSegment + 1];
+                const fraction = currentStep / stepsPerSegment;
+                const currentPoint = interpolatePoint(start, end, fraction);
+
+                // Update line
+                const currentPath = animatedLine.getLatLngs();
+                currentPath.push(currentPoint);
+                animatedLine.setLatLngs(currentPath);
+
+                // Update moving marker
+                movingMarker.setLatLng(currentPoint);
+
+                currentStep++;
+                if (currentStep > stepsPerSegment) {
+                    currentStep = 0;
+                    currentSegment++;
+                }
+
+                const timer = setTimeout(animateStep, CONFIG.ANIMATION_DURATION / CONFIG.ANIMATION_STEPS);
+                STATE.animationTimers.push(timer);
+            }
+
+            animateStep();
+        }
+
+        /* ============================================
+           CLEAR ANIMATION TIMERS
+           ============================================ */
+        function clearAnimations() {
+            STATE.animationTimers.forEach(timer => clearTimeout(timer));
+            STATE.animationTimers = [];
+        }
+
+        /* ============================================
+           UPDATE EVENT DOTS
+           ============================================ */
+        function updateEventDots(activeTimestamp) {
+            STATE.eventDots.forEach((dot, index) => {
+                const tripTime = TIME.parseDate(TRIPS[index].date);
+                if (Math.abs(tripTime - activeTimestamp) < 86400000) { // Within 1 day
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+
+        /* ============================================
+           TIMELINE SETUP
+           ============================================ */
+        function setupTimeline() {
+            const years = [2014, 2015, 2016, 2017];
+            
+            years.forEach(year => {
+                const dateStr = `${year}-01-01`;
+                const pct = ((TIME.parseDate(dateStr) - TIME.startTimestamp) / TIME.totalDuration) * 100;
+                
+                // Year label
+                const label = document.createElement('div');
+                label.className = 'year-marker sans-serif';
+                label.innerText = year;
+                label.style.left = pct + '%';
+                DOM.timelineWrapper.appendChild(label);
+
+                // Year tick
+                const tick = document.createElement('div');
+                tick.className = 'year-tick';
+                tick.style.left = pct + '%';
+                DOM.timelineWrapper.appendChild(tick);
+            });
+
+            // Add event dots for each trip
+            TRIPS.forEach(trip => {
+                const tripTime = TIME.parseDate(trip.date);
+                const pct = ((tripTime - TIME.startTimestamp) / TIME.totalDuration) * 100;
+                
+                const dot = document.createElement('div');
+                dot.className = 'event-dot';
+                dot.style.left = pct + '%';
+                DOM.timelineWrapper.appendChild(dot);
+                STATE.eventDots.push(dot);
+            });
+        }
+
+        /* ============================================
+           CLEAR MAP LAYERS
+           ============================================ */
+        function clearMapLayers() {
+            clearAnimations();
+            STATE.mapLayers.forEach(layer => map.removeLayer(layer));
+            STATE.mapLayers = [];
+        }
+
+        /* ============================================
+           UPDATE TIMELINE POSITION
+           ============================================ */
+        function updateTimelinePosition(timestamp) {
+            const pct = Math.min(100, Math.max(0, 
+                ((timestamp - TIME.startTimestamp) / TIME.totalDuration) * 100
+            ));
+            DOM.activeMarker.style.left = `${pct}%`;
+            DOM.tooltipDate.innerText = TIME.formatDateShort(timestamp);
+            updateEventDots(timestamp);
+        }
+
+        /* ============================================
+           FIND NEXT TRIP INDEX FROM TIMESTAMP
+           ============================================ */
+        function findNextTripIndex(timestamp) {
+            for (let i = 0; i < TRIPS.length; i++) {
+                if (TIME.parseDate(TRIPS[i].date) > timestamp) {
+                    return i;
+                }
+            }
+            return -1; // All trips completed, should loop
+        }
+
+        /* ============================================
+           RENDER STATE
+           ============================================ */
+        function renderState(targetTimestamp, animated = false) {
+            clearMapLayers();
+            updateTimelinePosition(targetTimestamp);
+
+            let runningTotal = 0;
+            let activeTrip = null;
+            let activeTripDate = 0;
+
+            // Process all trips up to target timestamp
+            TRIPS.forEach((trip) => {
+                const tripTime = TIME.parseDate(trip.date);
+                
+                if (tripTime <= targetTimestamp) {
+                    runningTotal += trip.cost;
+                    
+                    if (tripTime > activeTripDate) {
+                        activeTrip = trip;
+                        activeTripDate = tripTime;
+                    }
+                }
+            });
+
+            // Draw all eligible trips
+            TRIPS.forEach((trip) => {
+                const tripTime = TIME.parseDate(trip.date);
+                
+                if (tripTime <= targetTimestamp) {
+                    const isActive = (trip === activeTrip && animated);
+                    const fullPath = [CONFIG.HOME_COORDS, ...trip.route, CONFIG.HOME_COORDS];
+
+                    animateFlightPath(fullPath, isActive, null);
+                }
+            });
+
+            // Update UI
+            DOM.totalSpent.innerText = formatCurrency(runningTotal);
+
+            if (activeTrip && targetTimestamp >= TIME.parseDate(TRIPS[0].date)) {
+                DOM.headline.innerText = activeTrip.dest;
+                DOM.date.innerText = activeTrip.date;
+                DOM.description.innerHTML = `
+                    <div class="flight-info sans-serif">
+                        <strong>Flight ${activeTrip.flight}</strong> — ${activeTrip.details}
+                    </div>
+                `;
+            } else {
+                resetToInitialState();
+            }
+        }
+
+        /* ============================================
+           RESET TO INITIAL STATE
+           ============================================ */
+        function resetToInitialState() {
+            DOM.headline.innerText = "Mapping the Foreign Trips";
+            DOM.date.innerText = "2014 – 2017";
+            DOM.description.innerHTML = `
+                An analysis of flight logs reveals a timeline of international travel.
+                <span class="instruction-text">&larr; Drag timeline or wait for autoplay</span>
+            `;
+        }
+
+        /* ============================================
+           AUTOPLAY LOOP
+           ============================================ */
+        function playNextStep() {
+            if (!STATE.isPlaying) return;
+
+            STATE.currentTripIndex++;
+
+            // Reset after final trip
+            if (STATE.currentTripIndex >= TRIPS.length) {
+                STATE.currentTripIndex = 0; // Loop back to start
+                renderState(TIME.parseDate(TRIPS[0].date), true);
+                STATE.playTimer = setTimeout(playNextStep, CONFIG.AUTOPLAY_DELAY);
+                return;
+            }
+
+            // Render next trip with animation
+            const tripDate = TIME.parseDate(TRIPS[STATE.currentTripIndex].date);
+            renderState(tripDate, true);
+            STATE.playTimer = setTimeout(playNextStep, CONFIG.AUTOPLAY_DELAY);
+        }
+
+        /* ============================================
+           DRAG INTERACTION
+           ============================================ */
+        function handleDrag(e) {
+            if (!STATE.isDragging) {
+                STATE.isPlaying = false;
+                clearTimeout(STATE.playTimer);
+                DOM.activeMarker.classList.add('dragging');
+                STATE.isDragging = true;
+            }
+
+            const rect = DOM.timelineWrapper.getBoundingClientRect();
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            let pct = (clientX - rect.left) / rect.width;
+            pct = Math.max(0, Math.min(1, pct));
+
+            const timeAtDrag = TIME.startTimestamp + (pct * TIME.totalDuration);
+            renderState(timeAtDrag, false); // No animation when dragging
+        }
+
+        function stopDrag() {
+            DOM.activeMarker.classList.remove('dragging');
+            STATE.isDragging = false;
+            
+            // Resume playing from current position
+            const currentPct = parseFloat(DOM.activeMarker.style.left) / 100;
+            const currentTime = TIME.startTimestamp + (currentPct * TIME.totalDuration);
+            
+            // Find the next trip after current position
+            STATE.currentTripIndex = findNextTripIndex(currentTime);
+            
+            if (STATE.currentTripIndex === -1) {
+                // All trips passed, loop to beginning
+                STATE.currentTripIndex = -1;
+            } else {
+                STATE.currentTripIndex--; // Will be incremented in playNextStep
+            }
+            
+            STATE.isPlaying = true;
+            playNextStep();
+        }
+
+        /* ============================================
+           EVENT LISTENERS
+           ============================================ */
+        
+        // Mouse events
+        DOM.timelineWrapper.addEventListener('mousedown', (e) => {
+            handleDrag(e);
+            
+            const mouseMoveHandler = (e) => handleDrag(e);
+            const mouseUpHandler = () => {
+                stopDrag();
+                window.removeEventListener('mousemove', mouseMoveHandler);
+                window.removeEventListener('mouseup', mouseUpHandler);
+            };
+            
+            window.addEventListener('mousemove', mouseMoveHandler);
+            window.addEventListener('mouseup', mouseUpHandler);
+        });
+
+        // Touch events
+        DOM.timelineWrapper.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleDrag(e);
+            
+            const touchMoveHandler = (e) => {
+                e.preventDefault();
+                handleDrag(e);
+            };
+            const touchEndHandler = () => {
+                stopDrag();
+                window.removeEventListener('touchmove', touchMoveHandler);
+                window.removeEventListener('touchend', touchEndHandler);
+            };
+            
+            window.addEventListener('touchmove', touchMoveHandler, { passive: false });
+            window.addEventListener('touchend', touchEndHandler);
+        }, { passive: false });
+
+        /* ============================================
+           INITIALISATION
+           ============================================ */
+        function init() {
+            setupTimeline();
+            renderState(TIME.startTimestamp, false);
+            setTimeout(() => {
+                playNextStep();
+            }, 1200);
+        }
+
+        // Start the application
+        init();
+
     </script>
 </body>
 </html>

@@ -3,9 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYT Style: Travel Investigation Dashboard</title>
+    <title>Daily Maverick: Travel Investigation Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
+        /* ============================================
+           DAILY MAVERICK CUSTOM FONTS
+           ============================================ */
+        @font-face {
+            font-family: 'DM Custom';
+            src: url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-regular.woff2') format('woff2'),
+                 url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-regular.woff') format('woff');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'DM Custom';
+            src: url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-bold.woff2') format('woff2'),
+                 url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-bold.woff') format('woff');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'DM Custom';
+            src: url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-italic.woff2') format('woff2'),
+                 url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-italic.woff') format('woff');
+            font-weight: 400;
+            font-style: italic;
+            font-display: swap;
+        }
+
+        /* Geist from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
+
+        /* Charis SIL from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Charis+SIL:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
         /* ============================================
            GLOBAL RESET & TYPOGRAPHY
            ============================================ */
@@ -14,9 +51,9 @@
         body { 
             margin: 0; 
             padding: 0; 
-            font-family: Georgia, 'Times New Roman', Times, serif; 
-            background: #fafafa; 
-            color: #121212; 
+            font-family: 'Charis SIL', Georgia, serif;
+            background: #f4f4f4; 
+            color: #1a1a1a; 
             overflow: hidden; 
             user-select: none;
             -webkit-font-smoothing: antialiased;
@@ -25,22 +62,48 @@
 
         h1, h2, h3 { 
             margin: 0; 
-            font-weight: 700; 
-            letter-spacing: -0.5px; 
+            font-weight: 400; 
+            letter-spacing: 0; 
         }
         
         .sans-serif { 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+        }
+
+        .dm-custom {
+            font-family: 'DM Custom', Georgia, serif;
+        }
+
+        /* ============================================
+           MAIN CONTAINER LAYOUT
+           ============================================ */
+        #main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            padding: 16px;
+            gap: 16px;
+            background: #f4f4f4;
         }
 
         /* ============================================
            MAP CONTAINER
            ============================================ */
+        #map-container {
+            flex: 1;
+            background: #ffffff;
+            border-radius: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #e0e0e0;
+        }
+
         #map { 
-            height: 100vh; 
-            width: 100vw; 
-            z-index: 1; 
-            background: #e8e8e8; 
+            height: 100%; 
+            width: 100%; 
+            background: #ebebeb; 
         }
 
         /* ============================================
@@ -50,17 +113,17 @@
             background: transparent;
             border: none;
             box-shadow: none;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-weight: 700;
-            color: #888;
+            font-family: 'Geist', sans-serif;
+            font-weight: 600;
+            color: #666;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-size: 9px;
+            letter-spacing: 1.2px;
+            font-size: 8.5px;
             text-shadow: 
-                1px 1px 0 rgba(255,255,255,0.9), 
-                -1px -1px 0 rgba(255,255,255,0.9), 
-                1px -1px 0 rgba(255,255,255,0.9), 
-                -1px 1px 0 rgba(255,255,255,0.9);
+                1px 1px 0 rgba(255,255,255,0.95), 
+                -1px -1px 0 rgba(255,255,255,0.95), 
+                1px -1px 0 rgba(255,255,255,0.95), 
+                -1px 1px 0 rgba(255,255,255,0.95);
             white-space: nowrap;
             pointer-events: none; 
         }
@@ -71,10 +134,10 @@
         .flight-marker {
             width: 10px;
             height: 10px;
-            background: #b91c1c;
+            background: #c41e3a;
             border: 2px solid #fff;
             border-radius: 50%;
-            box-shadow: 0 2px 6px rgba(185, 28, 28, 0.5);
+            box-shadow: 0 2px 6px rgba(196, 30, 58, 0.5);
             animation: pulse 1.5s ease-in-out infinite;
         }
 
@@ -93,29 +156,15 @@
            BOTTOM CONTROL PANEL
            ============================================ */
         #bottom-panel {
-            position: absolute;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 820px;
-            z-index: 1000;
-            padding: 24px 28px 22px;
             background: #ffffff;
-            border-radius: 2px;
-            box-shadow: 
-                0 2px 8px rgba(0,0,0,0.08),
-                0 8px 24px rgba(0,0,0,0.12);
+            border-radius: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            padding: 20px 24px 18px;
             display: flex;
             flex-direction: column;
-            gap: 18px;
-            transition: box-shadow 0.3s ease;
-        }
-
-        #bottom-panel:hover {
-            box-shadow: 
-                0 4px 12px rgba(0,0,0,0.1),
-                0 12px 32px rgba(0,0,0,0.15);
+            gap: 16px;
+            flex-shrink: 0;
+            border: 1px solid #e0e0e0;
         }
 
         /* ============================================
@@ -125,8 +174,8 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            border-bottom: 1px solid #e5e5e5;
-            padding-bottom: 14px;
+            border-bottom: 2px solid #c41e3a;
+            padding-bottom: 12px;
         }
 
         .header-left { 
@@ -140,73 +189,85 @@
         }
 
         .kicker {
-            font-size: 0.65rem;
+            font-size: 0.6875rem;
             text-transform: uppercase;
-            letter-spacing: 1.2px;
-            font-weight: 700;
-            color: #b91c1c;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            color: #c41e3a;
             display: block;
             margin-bottom: 6px;
         }
 
         .headline {
-            font-size: 1.5rem;
-            line-height: 1.2;
-            margin-bottom: 5px;
-            color: #000;
-            transition: color 0.3s ease;
+            font-size: 1.75rem;
+            line-height: 1.15;
+            margin-bottom: 6px;
+            color: #1a1a1a;
+            font-weight: 400;
+            letter-spacing: -0.02em;
         }
 
         .date-line {
-            font-size: 0.875rem;
+            font-size: 0.9375rem;
             color: #666;
             font-style: italic;
-            margin-top: 2px;
+            margin-top: 4px;
+            font-family: 'Charis SIL', Georgia, serif;
         }
 
         .metric-label {
-            font-size: 0.7rem;
+            font-size: 0.6875rem;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 1.2px;
+            font-weight: 500;
             color: #666;
             display: block;
             margin-bottom: 6px;
         }
 
         .metric-value {
-            font-size: 1.9rem;
-            font-weight: 700;
-            color: #121212;
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1a1a1a;
             font-variant-numeric: tabular-nums;
-            letter-spacing: -0.5px;
+            letter-spacing: -0.03em;
         }
 
         /* ============================================
            PANEL BODY (NARRATIVE)
            ============================================ */
         .panel-body {
-            font-size: 0.925rem;
-            line-height: 1.5;
+            font-size: 1rem;
+            line-height: 1.6;
             color: #333;
             min-height: 54px;
             transition: opacity 0.3s ease;
+            font-family: 'Charis SIL', Georgia, serif;
         }
 
         .flight-info {
             display: inline-block;
-            background: #f7f7f7;
-            padding: 6px 10px;
+            background: #f8f8f8;
+            padding: 8px 12px;
             margin-top: 6px;
-            border-left: 3px solid #666;
-            font-size: 0.825rem;
-            border-radius: 1px;
+            border-left: 3px solid #c41e3a;
+            font-size: 0.9375rem;
+            border-radius: 0;
+            font-family: 'Charis SIL', Georgia, serif;
+        }
+
+        .flight-info strong {
+            font-family: 'Geist', sans-serif;
+            font-weight: 600;
+            color: #1a1a1a;
         }
 
         .instruction-text {
-            color: #b91c1c;
+            color: #c41e3a;
             font-weight: 600;
-            margin-left: 6px;
+            margin-left: 8px;
             font-size: 0.875rem;
+            font-family: 'Geist', sans-serif;
         }
 
         /* ============================================
@@ -216,7 +277,7 @@
             position: relative;
             width: 100%;
             height: 36px;
-            margin-top: 4px;
+            margin-top: 6px;
             cursor: pointer;
             padding: 4px 0;
         }
@@ -232,7 +293,7 @@
         }
 
         .timeline-hit-area:hover ~ .timeline-track {
-            background: #b0b0b0;
+            background: #999;
         }
 
         .timeline-track { 
@@ -252,10 +313,10 @@
             left: 0%; 
             width: 14px; 
             height: 14px; 
-            background: #b91c1c; 
+            background: #c41e3a; 
             border: 2px solid #fff; 
             border-radius: 50%; 
-            box-shadow: 0 2px 6px rgba(0,0,0,0.25); 
+            box-shadow: 0 2px 6px rgba(196, 30, 58, 0.3); 
             z-index: 10; 
             transform: translateX(-50%); 
             transition: 
@@ -267,14 +328,14 @@
 
         .timeline-indicator:hover {
             transform: translateX(-50%) scale(1.15);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+            box-shadow: 0 3px 10px rgba(196, 30, 58, 0.4);
         }
         
         .timeline-indicator.dragging { 
             transition: none; 
             cursor: grabbing;
             transform: translateX(-50%) scale(1.2);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.5);
         }
 
         .timeline-tooltip {
@@ -284,9 +345,9 @@
             transform: translateX(-50%); 
             background: #1a1a1a; 
             color: #fff; 
-            font-size: 0.7rem; 
+            font-size: 0.6875rem; 
             padding: 5px 10px; 
-            border-radius: 3px; 
+            border-radius: 2px; 
             white-space: nowrap; 
             font-weight: 600; 
             pointer-events: none;
@@ -314,8 +375,8 @@
         .year-marker { 
             position: absolute; 
             top: 24px; 
-            font-size: 0.7rem; 
-            font-weight: 600; 
+            font-size: 0.6875rem; 
+            font-weight: 500; 
             color: #999; 
             transform: translateX(-50%); 
             pointer-events: none; 
@@ -326,7 +387,7 @@
             top: 14px; 
             height: 8px; 
             width: 1px; 
-            background: #aaa; 
+            background: #bbb; 
             pointer-events: none; 
             transform: translateX(-50%);
         }
@@ -337,7 +398,7 @@
             top: 15px;
             width: 6px;
             height: 6px;
-            background: #666;
+            background: #888;
             border: 1px solid #fff;
             border-radius: 50%;
             transform: translateX(-50%);
@@ -347,30 +408,47 @@
         }
 
         .event-dot.active {
-            background: #b91c1c;
+            background: #c41e3a;
             width: 8px;
             height: 8px;
             top: 14px;
-            box-shadow: 0 0 8px rgba(185, 28, 28, 0.6);
+            box-shadow: 0 0 8px rgba(196, 30, 58, 0.6);
         }
 
         /* ============================================
            RESPONSIVE DESIGN
            ============================================ */
+        @media (max-width: 900px) {
+            #main-container {
+                padding: 12px;
+                gap: 12px;
+            }
+
+            #bottom-panel {
+                padding: 18px 20px 16px;
+            }
+
+            .headline {
+                font-size: 1.5rem;
+            }
+        }
+
         @media (max-width: 700px) {
+            #main-container {
+                padding: 10px;
+                gap: 10px;
+            }
+
             #bottom-panel { 
-                width: 94%; 
-                padding: 20px 22px; 
-                bottom: 16px; 
-                gap: 14px;
+                padding: 16px 18px 14px; 
             }
             
             .headline { 
-                font-size: 1.25rem; 
+                font-size: 1.375rem; 
             }
             
             .metric-value { 
-                font-size: 1.6rem; 
+                font-size: 1.625rem; 
             }
             
             .panel-header { 
@@ -381,32 +459,46 @@
                 text-align: left; 
                 margin-top: 12px; 
                 padding-top: 12px; 
-                border-top: 1px solid #e5e5e5; 
+                border-top: 1px solid #e0e0e0; 
                 width: 100%; 
             }
 
             .panel-body {
-                font-size: 0.875rem;
+                font-size: 0.9375rem;
             }
 
             .instruction-text {
                 display: block;
                 margin-left: 0;
-                margin-top: 4px;
+                margin-top: 6px;
             }
         }
 
         @media (max-width: 480px) {
+            #main-container {
+                padding: 8px;
+                gap: 8px;
+            }
+
             #bottom-panel {
-                padding: 16px 18px;
+                padding: 14px 16px 12px;
             }
 
             .headline {
-                font-size: 1.1rem;
+                font-size: 1.25rem;
+            }
+
+            .metric-value {
+                font-size: 1.5rem;
             }
 
             .flight-info {
-                font-size: 0.75rem;
+                font-size: 0.875rem;
+                padding: 6px 10px;
+            }
+
+            .panel-body {
+                font-size: 0.875rem;
             }
         }
 
@@ -425,32 +517,36 @@
 </head>
 <body>
 
-    <div id="map"></div>
-
-    <div id="bottom-panel" class="loading">
-        
-        <div class="panel-header">
-            <div class="header-left">
-                <span class="kicker sans-serif">The Investigation</span>
-                <div class="headline" id="story-headline">Mapping the Foreign Trips</div>
-                <div class="date-line" id="story-date">2014 – 2017</div>
-            </div>
-            <div class="header-right">
-                <span class="metric-label sans-serif">Cumulative Cost</span>
-                <span class="metric-value sans-serif" id="total-spent">R 0</span>
-            </div>
+    <div id="main-container">
+        <div id="map-container">
+            <div id="map"></div>
         </div>
 
-        <div class="panel-body" id="story-desc">
-            An analysis of flight logs reveals a timeline of international travel.
-            <span class="instruction-text">&larr; Drag timeline or wait for autoplay</span>
-        </div>
+        <div id="bottom-panel" class="loading">
+            
+            <div class="panel-header">
+                <div class="header-left">
+                    <span class="kicker sans-serif">The Investigation</span>
+                    <div class="headline dm-custom" id="story-headline">Mapping the Foreign Trips</div>
+                    <div class="date-line" id="story-date">2014 – 2017</div>
+                </div>
+                <div class="header-right">
+                    <span class="metric-label sans-serif">Cumulative Cost</span>
+                    <span class="metric-value sans-serif" id="total-spent">R 0</span>
+                </div>
+            </div>
 
-        <div class="timeline-wrapper" id="timeline-wrapper">
-            <div class="timeline-hit-area"></div>
-            <div class="timeline-track"></div>
-            <div class="timeline-indicator" id="active-marker">
-                <div class="timeline-tooltip sans-serif" id="tooltip-date">Start</div>
+            <div class="panel-body" id="story-desc">
+                An analysis of flight logs reveals a timeline of international travel.
+                <span class="instruction-text">&larr; Drag timeline or wait for autoplay</span>
+            </div>
+
+            <div class="timeline-wrapper" id="timeline-wrapper">
+                <div class="timeline-hit-area"></div>
+                <div class="timeline-track"></div>
+                <div class="timeline-indicator" id="active-marker">
+                    <div class="timeline-tooltip sans-serif" id="tooltip-date">Start</div>
+                </div>
             </div>
         </div>
     </div>
@@ -465,7 +561,7 @@
             AUTOPLAY_DELAY: 5500,
             RESET_DELAY: 3000,
             MAP_ZOOM: 2,
-            MAP_CENTRE: [10, 15], // Adjusted to keep all destinations visible
+            MAP_CENTRE: [10, 15],
             ANIMATION_DURATION: 2000,
             ANIMATION_STEPS: 50
         };
@@ -553,8 +649,8 @@
 
         // Home marker (Johannesburg)
         L.circleMarker(CONFIG.HOME_COORDS, {
-            color: '#333', 
-            fillColor: '#333', 
+            color: '#1a1a1a', 
+            fillColor: '#1a1a1a', 
             fillOpacity: 1, 
             radius: 5,
             weight: 2
@@ -670,7 +766,7 @@
 
             // Animated path for active trip
             const animatedLine = L.polyline([], {
-                color: '#b91c1c',
+                color: '#c41e3a',
                 weight: 2.5,
                 opacity: 0.95,
                 smoothFactor: 1
@@ -702,7 +798,7 @@
                         const marker = L.circleMarker(coord, {
                             color: '#fff', 
                             weight: 2,
-                            fillColor: '#b91c1c',
+                            fillColor: '#c41e3a',
                             fillOpacity: 1,
                             radius: 7
                         }).addTo(map);
@@ -876,7 +972,7 @@
                 DOM.headline.innerText = activeTrip.dest;
                 DOM.date.innerText = activeTrip.date;
                 DOM.description.innerHTML = `
-                    <div class="flight-info sans-serif">
+                    <div class="flight-info">
                         <strong>Flight ${activeTrip.flight}</strong> — ${activeTrip.details}
                     </div>
                 `;
@@ -1005,13 +1101,20 @@
         function init() {
             setupTimeline();
             renderState(TIME.startTimestamp, false);
+            
+            // Wait for map to properly initialise
             setTimeout(() => {
+                map.invalidateSize();
                 playNextStep();
-            }, 1200);
+            }, 100);
         }
 
-        // Start the application
-        init();
+        // Start the application when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
 
     </script>
 </body>

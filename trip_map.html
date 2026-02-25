@@ -1,1121 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Maverick: Travel Investigation Dashboard</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <style>
-        /* ============================================
-           DAILY MAVERICK CUSTOM FONTS
-           ============================================ */
-        @font-face {
-            font-family: 'DM Custom';
-            src: url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-regular.woff2') format('woff2'),
-                 url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-regular.woff') format('woff');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Image Carousel</title>
+  <style>
+    /* --- Page Setup --- */
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #222; /* Dark background for the standalone page */
+      font-family: sans-serif;
+    }
 
-        @font-face {
-            font-family: 'DM Custom';
-            src: url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-bold.woff2') format('woff2'),
-                 url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-bold.woff') format('woff');
-            font-weight: 700;
-            font-style: normal;
-            font-display: swap;
-        }
+    /* --- Container Setup --- */
+    .custom-carousel-container {
+      position: relative;
+      max-width: 800px; /* Fits standard article widths */
+      width: 100%;
+      background-color: #1a1a1a; /* Dark background to match the image bottom */
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Added a subtle shadow for the standalone page */
+    }
 
-        @font-face {
-            font-family: 'DM Custom';
-            src: url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-italic.woff2') format('woff2'),
-                 url('https://www.dailymaverick.co.za/wp-content/themes/daily-maverick/assets/fonts/dm-custom-italic.woff') format('woff');
-            font-weight: 400;
-            font-style: italic;
-            font-display: swap;
-        }
+    /* --- Image Styling --- */
+    #carousel-main-image {
+      width: 100%;
+      height: auto;
+      display: block;
+      /* Explicitly no transitions or fades applied here */
+      margin-bottom: 4px; /* Space for the progress bar */
+    }
 
-        /* Geist from Google Fonts */
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
+    /* --- Chevron Styling --- */
+    .carousel-chevron {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(0, 0, 0, 1); /* Solid black */
+      font-size: 36px; /* Smaller size */
+      font-weight: bold;
+      padding: 0 20px;
+      cursor: pointer;
+      z-index: 10;
+      text-shadow: none;
+      transition: color 0.2s;
+    }
 
-        /* Charis SIL from Google Fonts */
-        @import url('https://fonts.googleapis.com/css2?family=Charis+SIL:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+    /* Disabled state for chevrons */
+    .carousel-chevron.disabled {
+      color: rgba(200, 200, 200, 1); /* Light grey */
+      pointer-events: none; /* Disable clicks */
+      cursor: default;
+    }
 
-        /* ============================================
-           GLOBAL RESET & TYPOGRAPHY
-           ============================================ */
-        * { box-sizing: border-box; }
-        
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: 'Charis SIL', Georgia, serif;
-            background: #f4f4f4; 
-            color: #1a1a1a; 
-            overflow: hidden; 
-            user-select: none;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
+    .carousel-chevron.prev { left: 0; }
+    .carousel-chevron.next { right: 0; }
 
-        h1, h2, h3 { 
-            margin: 0; 
-            font-weight: 400; 
-            letter-spacing: 0; 
-        }
-        
-        .sans-serif { 
-            font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-        }
+    /* --- Progress Bar Styling --- */
+    .carousel-progress-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 4px; /* Thickness of the bar */
+      background-color: rgba(255, 255, 255, 0.2); /* Subtle background track */
+      z-index: 20;
+    }
 
-        .dm-custom {
-            font-family: 'DM Custom', Georgia, serif;
-        }
-
-        /* ============================================
-           MAIN CONTAINER LAYOUT
-           ============================================ */
-        #main-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-            padding: 16px;
-            gap: 16px;
-            background: #f4f4f4;
-        }
-
-        /* ============================================
-           MAP CONTAINER
-           ============================================ */
-        #map-container {
-            flex: 1;
-            background: #ffffff;
-            border-radius: 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            overflow: hidden;
-            position: relative;
-            border: 1px solid #e0e0e0;
-        }
-
-        #map { 
-            height: 100%; 
-            width: 100%; 
-            background: #ebebeb; 
-        }
-
-        /* ============================================
-           CUSTOM MAP LABELS
-           ============================================ */
-        .country-label {
-            background: transparent;
-            border: none;
-            box-shadow: none;
-            font-family: 'Geist', sans-serif;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            font-size: 8.5px;
-            text-shadow: 
-                1px 1px 0 rgba(255,255,255,0.95), 
-                -1px -1px 0 rgba(255,255,255,0.95), 
-                1px -1px 0 rgba(255,255,255,0.95), 
-                -1px 1px 0 rgba(255,255,255,0.95);
-            white-space: nowrap;
-            pointer-events: none; 
-        }
-
-        /* ============================================
-           ANIMATED FLIGHT MARKER
-           ============================================ */
-        .flight-marker {
-            width: 10px;
-            height: 10px;
-            background: #c41e3a;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            box-shadow: 0 2px 6px rgba(196, 30, 58, 0.5);
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { 
-                transform: scale(1); 
-                opacity: 1;
-            }
-            50% { 
-                transform: scale(1.3); 
-                opacity: 0.8;
-            }
-        }
-
-        /* ============================================
-           BOTTOM CONTROL PANEL
-           ============================================ */
-        #bottom-panel {
-            background: #ffffff;
-            border-radius: 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            padding: 20px 24px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            flex-shrink: 0;
-            border: 1px solid #e0e0e0;
-        }
-
-        /* ============================================
-           PANEL HEADER
-           ============================================ */
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 2px solid #c41e3a;
-            padding-bottom: 12px;
-        }
-
-        .header-left { 
-            flex: 1; 
-            padding-right: 24px; 
-        }
-        
-        .header-right { 
-            text-align: right; 
-            min-width: 140px;
-        }
-
-        .kicker {
-            font-size: 0.6875rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 600;
-            color: #c41e3a;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .headline {
-            font-size: 1.75rem;
-            line-height: 1.15;
-            margin-bottom: 6px;
-            color: #1a1a1a;
-            font-weight: 400;
-            letter-spacing: -0.02em;
-        }
-
-        .date-line {
-            font-size: 0.9375rem;
-            color: #666;
-            font-style: italic;
-            margin-top: 4px;
-            font-family: 'Charis SIL', Georgia, serif;
-        }
-
-        .metric-label {
-            font-size: 0.6875rem;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            font-weight: 500;
-            color: #666;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 600;
-            color: #1a1a1a;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -0.03em;
-        }
-
-        /* ============================================
-           PANEL BODY (NARRATIVE)
-           ============================================ */
-        .panel-body {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: #333;
-            min-height: 54px;
-            transition: opacity 0.3s ease;
-            font-family: 'Charis SIL', Georgia, serif;
-        }
-
-        .flight-info {
-            display: inline-block;
-            background: #f8f8f8;
-            padding: 8px 12px;
-            margin-top: 6px;
-            border-left: 3px solid #c41e3a;
-            font-size: 0.9375rem;
-            border-radius: 0;
-            font-family: 'Charis SIL', Georgia, serif;
-        }
-
-        .flight-info strong {
-            font-family: 'Geist', sans-serif;
-            font-weight: 600;
-            color: #1a1a1a;
-        }
-
-        .instruction-text {
-            color: #c41e3a;
-            font-weight: 600;
-            margin-left: 8px;
-            font-size: 0.875rem;
-            font-family: 'Geist', sans-serif;
-        }
-
-        /* ============================================
-           TIMELINE
-           ============================================ */
-        .timeline-wrapper {
-            position: relative;
-            width: 100%;
-            height: 36px;
-            margin-top: 6px;
-            cursor: pointer;
-            padding: 4px 0;
-        }
-
-        .timeline-hit-area { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            z-index: 5; 
-            cursor: pointer;
-        }
-
-        .timeline-hit-area:hover ~ .timeline-track {
-            background: #999;
-        }
-
-        .timeline-track { 
-            position: absolute; 
-            top: 17px; 
-            left: 0; 
-            width: 100%; 
-            height: 2px; 
-            background: #d0d0d0; 
-            pointer-events: none;
-            transition: background 0.2s ease;
-        }
-        
-        .timeline-indicator {
-            position: absolute; 
-            top: 13px; 
-            left: 0%; 
-            width: 14px; 
-            height: 14px; 
-            background: #c41e3a; 
-            border: 2px solid #fff; 
-            border-radius: 50%; 
-            box-shadow: 0 2px 6px rgba(196, 30, 58, 0.3); 
-            z-index: 10; 
-            transform: translateX(-50%); 
-            transition: 
-                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
-                transform 0.2s ease,
-                box-shadow 0.2s ease;
-            cursor: grab;
-        }
-
-        .timeline-indicator:hover {
-            transform: translateX(-50%) scale(1.15);
-            box-shadow: 0 3px 10px rgba(196, 30, 58, 0.4);
-        }
-        
-        .timeline-indicator.dragging { 
-            transition: none; 
-            cursor: grabbing;
-            transform: translateX(-50%) scale(1.2);
-            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.5);
-        }
-
-        .timeline-tooltip {
-            position: absolute; 
-            bottom: 22px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            background: #1a1a1a; 
-            color: #fff; 
-            font-size: 0.6875rem; 
-            padding: 5px 10px; 
-            border-radius: 2px; 
-            white-space: nowrap; 
-            font-weight: 600; 
-            pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-
-        .timeline-indicator:hover .timeline-tooltip,
-        .timeline-indicator.dragging .timeline-tooltip {
-            opacity: 1;
-        }
-        
-        .timeline-tooltip::after {
-            content: ''; 
-            position: absolute; 
-            top: 100%; 
-            left: 50%; 
-            margin-left: -4px; 
-            border-width: 4px; 
-            border-style: solid; 
-            border-color: #1a1a1a transparent transparent transparent;
-        }
-
-        .year-marker { 
-            position: absolute; 
-            top: 24px; 
-            font-size: 0.6875rem; 
-            font-weight: 500; 
-            color: #999; 
-            transform: translateX(-50%); 
-            pointer-events: none; 
-        }
-
-        .year-tick { 
-            position: absolute; 
-            top: 14px; 
-            height: 8px; 
-            width: 1px; 
-            background: #bbb; 
-            pointer-events: none; 
-            transform: translateX(-50%);
-        }
-
-        /* Event dots on timeline */
-        .event-dot {
-            position: absolute;
-            top: 15px;
-            width: 6px;
-            height: 6px;
-            background: #888;
-            border: 1px solid #fff;
-            border-radius: 50%;
-            transform: translateX(-50%);
-            pointer-events: none;
-            z-index: 3;
-            transition: all 0.2s ease;
-        }
-
-        .event-dot.active {
-            background: #c41e3a;
-            width: 8px;
-            height: 8px;
-            top: 14px;
-            box-shadow: 0 0 8px rgba(196, 30, 58, 0.6);
-        }
-
-        /* ============================================
-           RESPONSIVE DESIGN
-           ============================================ */
-        @media (max-width: 900px) {
-            #main-container {
-                padding: 12px;
-                gap: 12px;
-            }
-
-            #bottom-panel {
-                padding: 18px 20px 16px;
-            }
-
-            .headline {
-                font-size: 1.5rem;
-            }
-        }
-
-        @media (max-width: 700px) {
-            #main-container {
-                padding: 10px;
-                gap: 10px;
-            }
-
-            #bottom-panel { 
-                padding: 16px 18px 14px; 
-            }
-            
-            .headline { 
-                font-size: 1.375rem; 
-            }
-            
-            .metric-value { 
-                font-size: 1.625rem; 
-            }
-            
-            .panel-header { 
-                flex-direction: column; 
-            }
-            
-            .header-right { 
-                text-align: left; 
-                margin-top: 12px; 
-                padding-top: 12px; 
-                border-top: 1px solid #e0e0e0; 
-                width: 100%; 
-            }
-
-            .panel-body {
-                font-size: 0.9375rem;
-            }
-
-            .instruction-text {
-                display: block;
-                margin-left: 0;
-                margin-top: 6px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            #main-container {
-                padding: 8px;
-                gap: 8px;
-            }
-
-            #bottom-panel {
-                padding: 14px 16px 12px;
-            }
-
-            .headline {
-                font-size: 1.25rem;
-            }
-
-            .metric-value {
-                font-size: 1.5rem;
-            }
-
-            .flight-info {
-                font-size: 0.875rem;
-                padding: 6px 10px;
-            }
-
-            .panel-body {
-                font-size: 0.875rem;
-            }
-        }
-
-        /* ============================================
-           LOADING STATE
-           ============================================ */
-        .loading {
-            opacity: 0;
-            animation: fadeIn 0.4s ease forwards;
-        }
-
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-    </style>
+    #carousel-progress-bar {
+      height: 100%;
+      width: 0%; /* Initial state, calculated by JS */
+      background-color: red; /* The requested color */
+      transition: width 0.3s ease-out; /* Smooth movement for the bar itself */
+    }
+  </style>
 </head>
 <body>
 
-    <div id="main-container">
-        <div id="map-container">
-            <div id="map"></div>
-        </div>
-
-        <div id="bottom-panel" class="loading">
-            
-            <div class="panel-header">
-                <div class="header-left">
-                    <span class="kicker sans-serif">The Investigation</span>
-                    <div class="headline dm-custom" id="story-headline">Mapping the Foreign Trips</div>
-                    <div class="date-line" id="story-date">2014 – 2017</div>
-                </div>
-                <div class="header-right">
-                    <span class="metric-label sans-serif">Cumulative Cost</span>
-                    <span class="metric-value sans-serif" id="total-spent">R 0</span>
-                </div>
-            </div>
-
-            <div class="panel-body" id="story-desc">
-                An analysis of flight logs reveals a timeline of international travel.
-                <span class="instruction-text">&larr; Drag timeline or wait for autoplay</span>
-            </div>
-
-            <div class="timeline-wrapper" id="timeline-wrapper">
-                <div class="timeline-hit-area"></div>
-                <div class="timeline-track"></div>
-                <div class="timeline-indicator" id="active-marker">
-                    <div class="timeline-tooltip sans-serif" id="tooltip-date">Start</div>
-                </div>
-            </div>
-        </div>
+  <div class="custom-carousel-container">
+    <button class="carousel-chevron prev" aria-label="Previous image">&#10094;</button>
+    
+    <img id="carousel-main-image" src="" alt="Carousel image">
+    
+    <div class="carousel-progress-container">
+      <div id="carousel-progress-bar"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        /* ============================================
-           CONFIGURATION & CONSTANTS
-           ============================================ */
-        const CONFIG = {
-            HOME_COORDS: [-26.2041, 28.0473], // Johannesburg
-            AUTOPLAY_DELAY: 5500,
-            RESET_DELAY: 3000,
-            MAP_ZOOM: 2,
-            MAP_CENTRE: [10, 15],
-            ANIMATION_DURATION: 2000,
-            ANIMATION_STEPS: 50
-        };
+    <button class="carousel-chevron next" aria-label="Next image">&#10095;</button>
+  </div>
 
-        /* ============================================
-           LOCATION DICTIONARY
-           ============================================ */
-        const LOCATIONS = {
-            JHB: [-26.2041, 28.0473],
-            NYC: [40.7128, -74.0060],
-            London: [51.5074, -0.1278],
-            Tanzania: [-6.7924, 39.2083],
-            Singapore: [1.3521, 103.8198],
-            HongKong: [22.3193, 114.1694],
-            Frankfurt: [50.1109, 8.6821],
-            Mauritius: [-20.3484, 57.5522],
-            SaoPaulo: [-23.5505, -46.6333],
-            Dubai: [25.2048, 55.2708],
-            Dakar: [14.7167, -17.4677],
-            Accra: [5.6037, -0.1870],
-            Atlanta: [33.7490, -84.3880],
-            Delhi: [28.6139, 77.2090],
-            AbuDhabi: [24.4539, 54.3773],
-            Maputo: [-25.9692, 32.5732]
-        };
+  <script>
+    // 1. Array of your provided test images. 
+    const images = [
+      "https://cdn.dailymaverick.co.za/i/1DFMjhcbA-zybc7bCF92o0tyWMk=/800x0/smart/filters:strip_exif()/file/attachments/orphans/TRACKERWIDGET-FRAME1_752335.jpg",
+      "https://cdn.dailymaverick.co.za/i/ZfJzqLm0rLXPthzH8C5xFHKtEF8=/800x0/smart/filters:strip_exif()/file/attachments/orphans/TRACKERWIDGET-FRAME2_101729.jpg",
+      "https://cdn.dailymaverick.co.za/i/cYSQDI8oFfDvQrdHp7Ogc1Ekjro=/800x0/smart/filters:strip_exif()/file/attachments/orphans/TRACKERWIDGET-FRAME3_294653.jpg",
+      "https://cdn.dailymaverick.co.za/i/eplMXx7v5lKsnXVh_FE7jo4eLrU=/800x0/smart/filters:strip_exif()/file/attachments/orphans/TRACKERWIDGET-FRAME4_139156.jpg"
+    ];
+    
+    let currentIndex = 0;
+    let carouselInterval;
+    const imgElement = document.getElementById('carousel-main-image');
+    const prevButton = document.querySelector('.carousel-chevron.prev');
+    const nextButton = document.querySelector('.carousel-chevron.next');
+    const progressBar = document.getElementById('carousel-progress-bar');
 
-        /* ============================================
-           TRIP DATA
-           ============================================ */
-        const TRIPS = [
-            { date: "2014-06-08", dest: "US & UK", route: [LOCATIONS.NYC, LOCATIONS.London], cost: 75000, flight: "SA203", details: "JHB to New York, returning via London." },
-            { date: "2014-08-31", dest: "Tanzania", route: [LOCATIONS.Tanzania], cost: 28000, flight: "SA186", details: "Regional travel to Dar es Salaam." },
-            { date: "2014-09-13", dest: "China & HK", route: [LOCATIONS.Singapore, LOCATIONS.HongKong], cost: 11500, flight: "SQ479", details: "Via Singapore to Hong Kong." },
-            { date: "2014-10-05", dest: "Germany & USA", route: [LOCATIONS.Frankfurt, LOCATIONS.NYC], cost: 16000, flight: "LH573", details: "Frankfurt connection en route to New York." },
-            { date: "2014-11-22", dest: "United Kingdom", route: [LOCATIONS.London], cost: 18000, flight: "BA54", details: "Direct travel to London." },
-            { date: "2014-12-02", dest: "Mauritius & China", route: [LOCATIONS.Mauritius, LOCATIONS.HongKong], cost: 17100, flight: "MK852", details: "Multi-leg trip involving Mauritius and Hong Kong." },
-            { date: "2015-01-17", dest: "Germany", route: [LOCATIONS.Frankfurt], cost: 21500, flight: "LH573", details: "Return trip to Frankfurt." },
-            { date: "2015-02-05", dest: "Brazil", route: [LOCATIONS.SaoPaulo], cost: 7100, flight: "SA222", details: "Travel to São Paulo." },
-            { date: "2015-06-29", dest: "UK (Wimbledon)", route: [LOCATIONS.London], cost: 236000, flight: "SA236", details: "High cost attributed to tickets (R117k)." },
-            { date: "2015-09-12", dest: "Germany", route: [LOCATIONS.Frankfurt], cost: 36300, flight: "SA260", details: "Standard travel to Frankfurt." },
-            { date: "2015-10-01", dest: "United States", route: [LOCATIONS.NYC], cost: 134000, flight: "SA203", details: "Direct return flight to New York." },
-            { date: "2015-11-04", dest: "United Kingdom", route: [LOCATIONS.London], cost: 5000, flight: "SA234", details: "Short duration trip to London." },
-            { date: "2016-03-30", dest: "Tanzania & UAE", route: [LOCATIONS.Tanzania, LOCATIONS.Dubai], cost: 46800, flight: "SA186", details: "Dar es Salaam continuing to Dubai." },
-            { date: "2016-05-25", dest: "UK & USA", route: [LOCATIONS.London, LOCATIONS.NYC], cost: 83100, flight: "BA054", details: "London leg of a multi-destination trip." },
-            { date: "2016-07-07", dest: "USA (via W. Africa)", route: [LOCATIONS.Dakar, LOCATIONS.Accra, LOCATIONS.NYC], cost: 38000, flight: "SA207", details: "Route via Dakar and Accra." },
-            { date: "2016-09-09", dest: "USA (Atlanta)", route: [LOCATIONS.Atlanta], cost: 42900, flight: "DL201", details: "Travel to Atlanta, Georgia." },
-            { date: "2016-10-10", dest: "India", route: [LOCATIONS.AbuDhabi, LOCATIONS.Delhi], cost: 31600, flight: "EY603", details: "Abu Dhabi connection to Delhi." },
-            { date: "2017-10-14", dest: "Mozambique", route: [LOCATIONS.Maputo], cost: 4750, flight: "SA142", details: "Regional flight to Maputo." }
-        ];
+    // Function to instantly update image, chevrons, and progress bar
+    function updateImage(index) {
+      // Handle index bounds
+      if (index < 0) { index = 0; } 
+      else if (index >= images.length) { index = images.length - 1; }
+      
+      currentIndex = index;
+      
+      // Instant image snap
+      imgElement.src = images[currentIndex];
+      imgElement.alt = `Slide ${currentIndex + 1}`;
 
-        /* ============================================
-           COUNTRY LABELS
-           ============================================ */
-        const COUNTRY_LABELS = [
-            { name: "South Africa", coords: [-29.0, 24.0] },
-            { name: "United States", coords: [39.0, -98.0] },
-            { name: "United Kingdom", coords: [54.0, -4.0] },
-            { name: "China", coords: [35.0, 104.0] },
-            { name: "Germany", coords: [51.0, 10.0] },
-            { name: "Tanzania", coords: [-6.0, 35.0] },
-            { name: "Brazil", coords: [-14.0, -52.0] },
-            { name: "India", coords: [22.0, 79.0] },
-            { name: "Mozambique", coords: [-16.0, 35.0] },
-            { name: "UAE", coords: [24.0, 54.0] },
-            { name: "W. Africa", coords: [10.0, -10.0] }
-        ];
+      // Update chevron disabled states
+      if (currentIndex === 0) { prevButton.classList.add('disabled'); } 
+      else { prevButton.classList.remove('disabled'); }
 
-        /* ============================================
-           MAP INITIALISATION
-           ============================================ */
-        const map = L.map('map', {
-            zoomControl: false, 
-            attributionControl: false, 
-            scrollWheelZoom: false,
-            doubleClickZoom: false,
-            touchZoom: false,
-            dragging: false
-        }).setView(CONFIG.MAP_CENTRE, CONFIG.MAP_ZOOM);
+      if (currentIndex === images.length - 1) { nextButton.classList.add('disabled'); } 
+      else { nextButton.classList.remove('disabled'); }
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap &copy; CARTO',
-            subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(map);
+      // Update Progress Bar Width
+      const progressPercentage = ((currentIndex + 1) / images.length) * 100;
+      progressBar.style.width = `${progressPercentage}%`;
+    }
 
-        // Home marker (Johannesburg)
-        L.circleMarker(CONFIG.HOME_COORDS, {
-            color: '#1a1a1a', 
-            fillColor: '#1a1a1a', 
-            fillOpacity: 1, 
-            radius: 5,
-            weight: 2
-        }).addTo(map);
-
-        // Add country labels
-        COUNTRY_LABELS.forEach(label => {
-            const icon = L.divIcon({
-                className: 'country-label',
-                html: label.name,
-                iconSize: [100, 20],
-                iconAnchor: [50, 10]
-            });
-            L.marker(label.coords, { icon, interactive: false }).addTo(map);
-        });
-
-        /* ============================================
-           DOM ELEMENTS
-           ============================================ */
-        const DOM = {
-            totalSpent: document.getElementById('total-spent'),
-            headline: document.getElementById('story-headline'),
-            date: document.getElementById('story-date'),
-            description: document.getElementById('story-desc'),
-            timelineWrapper: document.getElementById('timeline-wrapper'),
-            activeMarker: document.getElementById('active-marker'),
-            tooltipDate: document.getElementById('tooltip-date')
-        };
-
-        /* ============================================
-           STATE MANAGEMENT
-           ============================================ */
-        const STATE = {
-            mapLayers: [],
-            isPlaying: true,
-            playTimer: null,
-            currentTripIndex: -1,
-            isDragging: false,
-            animationTimers: [],
-            eventDots: []
-        };
-
-        /* ============================================
-           TIME UTILITIES
-           ============================================ */
-        const TIME = {
-            parseDate: (str) => new Date(str).getTime(),
-            formatDateShort: (timestamp) => {
-                const d = new Date(timestamp);
-                return d.toLocaleDateString('en-GB', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-            },
-            startTimestamp: new Date("2014-01-01").getTime(),
-            endTimestamp: new Date("2018-01-01").getTime()
-        };
-
-        TIME.totalDuration = TIME.endTimestamp - TIME.startTimestamp;
-
-        /* ============================================
-           FORMATTING UTILITIES
-           ============================================ */
-        const formatCurrency = (amount) => {
-            return new Intl.NumberFormat('en-ZA', { 
-                style: 'currency', 
-                currency: 'ZAR', 
-                maximumFractionDigits: 0 
-            }).format(amount);
-        };
-
-        /* ============================================
-           INTERPOLATE BETWEEN TWO POINTS
-           ============================================ */
-        function interpolatePoint(start, end, fraction) {
-            return [
-                start[0] + (end[0] - start[0]) * fraction,
-                start[1] + (end[1] - start[1]) * fraction
-            ];
+    // Automatic cycle function
+    function startCarousel() {
+      clearInterval(carouselInterval); 
+      carouselInterval = setInterval(() => {
+        // Calculate next index with wrap-around for auto-play
+        let nextIndex = currentIndex + 1;
+        if (nextIndex >= images.length) {
+            nextIndex = 0;
         }
+        updateImage(nextIndex);
+      }, 3000); // 3000ms = 3 seconds
+    }
 
-        /* ============================================
-           ANIMATE FLIGHT PATH
-           ============================================ */
-        function animateFlightPath(fullPath, isActive, callback) {
-            if (!isActive || STATE.isDragging) {
-                // Draw complete path immediately if not active
-                const line = L.polyline(fullPath, {
-                    color: '#999',
-                    weight: 1,
-                    dashArray: '4, 8',
-                    opacity: 0.35,
-                    smoothFactor: 1
-                }).addTo(map);
-                STATE.mapLayers.push(line);
-                
-                // Add static markers
-                fullPath.slice(1, -1).forEach(coord => {
-                    const marker = L.circleMarker(coord, {
-                        color: '#fff', 
-                        weight: 2,
-                        fillColor: '#999',
-                        fillOpacity: 0.5,
-                        radius: 4
-                    }).addTo(map);
-                    STATE.mapLayers.push(marker);
-                });
-                
-                if (callback) callback();
-                return;
-            }
+    // Manual Navigation Event Listeners
+    prevButton.addEventListener('click', () => {
+      updateImage(currentIndex - 1);
+      startCarousel(); // Reset timer after manual interaction
+    });
 
-            // Animated path for active trip
-            const animatedLine = L.polyline([], {
-                color: '#c41e3a',
-                weight: 2.5,
-                opacity: 0.95,
-                smoothFactor: 1
-            }).addTo(map);
-            STATE.mapLayers.push(animatedLine);
+    nextButton.addEventListener('click', () => {
+      updateImage(currentIndex + 1);
+      startCarousel(); // Reset timer after manual interaction
+    });
 
-            // Create moving marker
-            const movingMarkerIcon = L.divIcon({
-                className: 'flight-marker',
-                iconSize: [10, 10],
-                iconAnchor: [5, 5]
-            });
-            const movingMarker = L.marker(fullPath[0], { icon: movingMarkerIcon }).addTo(map);
-            STATE.mapLayers.push(movingMarker);
+    // Initialize widget
+    updateImage(0);
+    startCarousel();
+  </script>
 
-            let currentSegment = 0;
-            let currentStep = 0;
-            const stepsPerSegment = Math.floor(CONFIG.ANIMATION_STEPS / (fullPath.length - 1));
-
-            function animateStep() {
-                if (STATE.isDragging || !STATE.isPlaying) {
-                    if (callback) callback();
-                    return;
-                }
-
-                if (currentSegment >= fullPath.length - 1) {
-                    // Animation complete - add final markers
-                    fullPath.slice(1, -1).forEach(coord => {
-                        const marker = L.circleMarker(coord, {
-                            color: '#fff', 
-                            weight: 2,
-                            fillColor: '#c41e3a',
-                            fillOpacity: 1,
-                            radius: 7
-                        }).addTo(map);
-                        STATE.mapLayers.push(marker);
-                    });
-                    
-                    map.removeLayer(movingMarker);
-                    if (callback) callback();
-                    return;
-                }
-
-                const start = fullPath[currentSegment];
-                const end = fullPath[currentSegment + 1];
-                const fraction = currentStep / stepsPerSegment;
-                const currentPoint = interpolatePoint(start, end, fraction);
-
-                // Update line
-                const currentPath = animatedLine.getLatLngs();
-                currentPath.push(currentPoint);
-                animatedLine.setLatLngs(currentPath);
-
-                // Update moving marker
-                movingMarker.setLatLng(currentPoint);
-
-                currentStep++;
-                if (currentStep > stepsPerSegment) {
-                    currentStep = 0;
-                    currentSegment++;
-                }
-
-                const timer = setTimeout(animateStep, CONFIG.ANIMATION_DURATION / CONFIG.ANIMATION_STEPS);
-                STATE.animationTimers.push(timer);
-            }
-
-            animateStep();
-        }
-
-        /* ============================================
-           CLEAR ANIMATION TIMERS
-           ============================================ */
-        function clearAnimations() {
-            STATE.animationTimers.forEach(timer => clearTimeout(timer));
-            STATE.animationTimers = [];
-        }
-
-        /* ============================================
-           UPDATE EVENT DOTS
-           ============================================ */
-        function updateEventDots(activeTimestamp) {
-            STATE.eventDots.forEach((dot, index) => {
-                const tripTime = TIME.parseDate(TRIPS[index].date);
-                if (Math.abs(tripTime - activeTimestamp) < 86400000) { // Within 1 day
-                    dot.classList.add('active');
-                } else {
-                    dot.classList.remove('active');
-                }
-            });
-        }
-
-        /* ============================================
-           TIMELINE SETUP
-           ============================================ */
-        function setupTimeline() {
-            const years = [2014, 2015, 2016, 2017];
-            
-            years.forEach(year => {
-                const dateStr = `${year}-01-01`;
-                const pct = ((TIME.parseDate(dateStr) - TIME.startTimestamp) / TIME.totalDuration) * 100;
-                
-                // Year label
-                const label = document.createElement('div');
-                label.className = 'year-marker sans-serif';
-                label.innerText = year;
-                label.style.left = pct + '%';
-                DOM.timelineWrapper.appendChild(label);
-
-                // Year tick
-                const tick = document.createElement('div');
-                tick.className = 'year-tick';
-                tick.style.left = pct + '%';
-                DOM.timelineWrapper.appendChild(tick);
-            });
-
-            // Add event dots for each trip
-            TRIPS.forEach(trip => {
-                const tripTime = TIME.parseDate(trip.date);
-                const pct = ((tripTime - TIME.startTimestamp) / TIME.totalDuration) * 100;
-                
-                const dot = document.createElement('div');
-                dot.className = 'event-dot';
-                dot.style.left = pct + '%';
-                DOM.timelineWrapper.appendChild(dot);
-                STATE.eventDots.push(dot);
-            });
-        }
-
-        /* ============================================
-           CLEAR MAP LAYERS
-           ============================================ */
-        function clearMapLayers() {
-            clearAnimations();
-            STATE.mapLayers.forEach(layer => map.removeLayer(layer));
-            STATE.mapLayers = [];
-        }
-
-        /* ============================================
-           UPDATE TIMELINE POSITION
-           ============================================ */
-        function updateTimelinePosition(timestamp) {
-            const pct = Math.min(100, Math.max(0, 
-                ((timestamp - TIME.startTimestamp) / TIME.totalDuration) * 100
-            ));
-            DOM.activeMarker.style.left = `${pct}%`;
-            DOM.tooltipDate.innerText = TIME.formatDateShort(timestamp);
-            updateEventDots(timestamp);
-        }
-
-        /* ============================================
-           FIND NEXT TRIP INDEX FROM TIMESTAMP
-           ============================================ */
-        function findNextTripIndex(timestamp) {
-            for (let i = 0; i < TRIPS.length; i++) {
-                if (TIME.parseDate(TRIPS[i].date) > timestamp) {
-                    return i;
-                }
-            }
-            return -1; // All trips completed, should loop
-        }
-
-        /* ============================================
-           RENDER STATE
-           ============================================ */
-        function renderState(targetTimestamp, animated = false) {
-            clearMapLayers();
-            updateTimelinePosition(targetTimestamp);
-
-            let runningTotal = 0;
-            let activeTrip = null;
-            let activeTripDate = 0;
-
-            // Process all trips up to target timestamp
-            TRIPS.forEach((trip) => {
-                const tripTime = TIME.parseDate(trip.date);
-                
-                if (tripTime <= targetTimestamp) {
-                    runningTotal += trip.cost;
-                    
-                    if (tripTime > activeTripDate) {
-                        activeTrip = trip;
-                        activeTripDate = tripTime;
-                    }
-                }
-            });
-
-            // Draw all eligible trips
-            TRIPS.forEach((trip) => {
-                const tripTime = TIME.parseDate(trip.date);
-                
-                if (tripTime <= targetTimestamp) {
-                    const isActive = (trip === activeTrip && animated);
-                    const fullPath = [CONFIG.HOME_COORDS, ...trip.route, CONFIG.HOME_COORDS];
-
-                    animateFlightPath(fullPath, isActive, null);
-                }
-            });
-
-            // Update UI
-            DOM.totalSpent.innerText = formatCurrency(runningTotal);
-
-            if (activeTrip && targetTimestamp >= TIME.parseDate(TRIPS[0].date)) {
-                DOM.headline.innerText = activeTrip.dest;
-                DOM.date.innerText = activeTrip.date;
-                DOM.description.innerHTML = `
-                    <div class="flight-info">
-                        <strong>Flight ${activeTrip.flight}</strong> — ${activeTrip.details}
-                    </div>
-                `;
-            } else {
-                resetToInitialState();
-            }
-        }
-
-        /* ============================================
-           RESET TO INITIAL STATE
-           ============================================ */
-        function resetToInitialState() {
-            DOM.headline.innerText = "Mapping the Foreign Trips";
-            DOM.date.innerText = "2014 – 2017";
-            DOM.description.innerHTML = `
-                An analysis of flight logs reveals a timeline of international travel.
-                <span class="instruction-text">&larr; Drag timeline or wait for autoplay</span>
-            `;
-        }
-
-        /* ============================================
-           AUTOPLAY LOOP
-           ============================================ */
-        function playNextStep() {
-            if (!STATE.isPlaying) return;
-
-            STATE.currentTripIndex++;
-
-            // Reset after final trip
-            if (STATE.currentTripIndex >= TRIPS.length) {
-                STATE.currentTripIndex = 0; // Loop back to start
-                renderState(TIME.parseDate(TRIPS[0].date), true);
-                STATE.playTimer = setTimeout(playNextStep, CONFIG.AUTOPLAY_DELAY);
-                return;
-            }
-
-            // Render next trip with animation
-            const tripDate = TIME.parseDate(TRIPS[STATE.currentTripIndex].date);
-            renderState(tripDate, true);
-            STATE.playTimer = setTimeout(playNextStep, CONFIG.AUTOPLAY_DELAY);
-        }
-
-        /* ============================================
-           DRAG INTERACTION
-           ============================================ */
-        function handleDrag(e) {
-            if (!STATE.isDragging) {
-                STATE.isPlaying = false;
-                clearTimeout(STATE.playTimer);
-                DOM.activeMarker.classList.add('dragging');
-                STATE.isDragging = true;
-            }
-
-            const rect = DOM.timelineWrapper.getBoundingClientRect();
-            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-            let pct = (clientX - rect.left) / rect.width;
-            pct = Math.max(0, Math.min(1, pct));
-
-            const timeAtDrag = TIME.startTimestamp + (pct * TIME.totalDuration);
-            renderState(timeAtDrag, false); // No animation when dragging
-        }
-
-        function stopDrag() {
-            DOM.activeMarker.classList.remove('dragging');
-            STATE.isDragging = false;
-            
-            // Resume playing from current position
-            const currentPct = parseFloat(DOM.activeMarker.style.left) / 100;
-            const currentTime = TIME.startTimestamp + (currentPct * TIME.totalDuration);
-            
-            // Find the next trip after current position
-            STATE.currentTripIndex = findNextTripIndex(currentTime);
-            
-            if (STATE.currentTripIndex === -1) {
-                // All trips passed, loop to beginning
-                STATE.currentTripIndex = -1;
-            } else {
-                STATE.currentTripIndex--; // Will be incremented in playNextStep
-            }
-            
-            STATE.isPlaying = true;
-            playNextStep();
-        }
-
-        /* ============================================
-           EVENT LISTENERS
-           ============================================ */
-        
-        // Mouse events
-        DOM.timelineWrapper.addEventListener('mousedown', (e) => {
-            handleDrag(e);
-            
-            const mouseMoveHandler = (e) => handleDrag(e);
-            const mouseUpHandler = () => {
-                stopDrag();
-                window.removeEventListener('mousemove', mouseMoveHandler);
-                window.removeEventListener('mouseup', mouseUpHandler);
-            };
-            
-            window.addEventListener('mousemove', mouseMoveHandler);
-            window.addEventListener('mouseup', mouseUpHandler);
-        });
-
-        // Touch events
-        DOM.timelineWrapper.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleDrag(e);
-            
-            const touchMoveHandler = (e) => {
-                e.preventDefault();
-                handleDrag(e);
-            };
-            const touchEndHandler = () => {
-                stopDrag();
-                window.removeEventListener('touchmove', touchMoveHandler);
-                window.removeEventListener('touchend', touchEndHandler);
-            };
-            
-            window.addEventListener('touchmove', touchMoveHandler, { passive: false });
-            window.addEventListener('touchend', touchEndHandler);
-        }, { passive: false });
-
-        /* ============================================
-           INITIALISATION
-           ============================================ */
-        function init() {
-            setupTimeline();
-            renderState(TIME.startTimestamp, false);
-            
-            // Wait for map to properly initialise
-            setTimeout(() => {
-                map.invalidateSize();
-                playNextStep();
-            }, 100);
-        }
-
-        // Start the application when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
-
-    </script>
 </body>
 </html>

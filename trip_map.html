@@ -9,24 +9,19 @@
     body {
       margin: 0;
       padding: 0;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background-color: #222; /* Dark background for the standalone page */
+      background-color: transparent; /* Removed dark background */
       font-family: sans-serif;
+      overflow: hidden; /* Prevents scrollbars */
     }
 
     /* --- Container Setup --- */
     .custom-carousel-container {
       position: relative;
-      max-width: 800px; /* Fits standard article widths */
-      width: 100%;
-      background-color: #1a1a1a; /* Dark background to match the image bottom */
+      width: 100%; /* Now fills the iframe perfectly */
+      background-color: transparent; /* Removed dark background */
       display: flex;
       align-items: center;
       overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Added a subtle shadow for the standalone page */
     }
 
     /* --- Image Styling --- */
@@ -34,7 +29,6 @@
       width: 100%;
       height: auto;
       display: block;
-      /* Explicitly no transitions or fades applied here */
       margin-bottom: 4px; /* Space for the progress bar */
     }
 
@@ -45,8 +39,8 @@
       transform: translateY(-50%);
       background: none;
       border: none;
-      color: rgba(0, 0, 0, 1); /* Solid black */
-      font-size: 36px; /* Smaller size */
+      color: rgba(0, 0, 0, 1);
+      font-size: 36px;
       font-weight: bold;
       padding: 0 20px;
       cursor: pointer;
@@ -55,10 +49,9 @@
       transition: color 0.2s;
     }
 
-    /* Disabled state for chevrons */
     .carousel-chevron.disabled {
-      color: rgba(200, 200, 200, 1); /* Light grey */
-      pointer-events: none; /* Disable clicks */
+      color: rgba(200, 200, 200, 1);
+      pointer-events: none;
       cursor: default;
     }
 
@@ -71,16 +64,16 @@
       bottom: 0;
       left: 0;
       width: 100%;
-      height: 4px; /* Thickness of the bar */
-      background-color: rgba(255, 255, 255, 0.2); /* Subtle background track */
+      height: 4px;
+      background-color: rgba(255, 255, 255, 0.2);
       z-index: 20;
     }
 
     #carousel-progress-bar {
       height: 100%;
-      width: 0%; /* Initial state, calculated by JS */
-      background-color: red; /* The requested color */
-      transition: width 0.3s ease-out; /* Smooth movement for the bar itself */
+      width: 0%;
+      background-color: red;
+      transition: width 0.3s ease-out;
     }
   </style>
 </head>
@@ -88,18 +81,14 @@
 
   <div class="custom-carousel-container">
     <button class="carousel-chevron prev" aria-label="Previous image">&#10094;</button>
-    
     <img id="carousel-main-image" src="" alt="Carousel image">
-    
     <div class="carousel-progress-container">
       <div id="carousel-progress-bar"></div>
     </div>
-
     <button class="carousel-chevron next" aria-label="Next image">&#10095;</button>
   </div>
 
   <script>
-    // 1. Array of your provided test images. 
     const images = [
       "https://cdn.dailymaverick.co.za/i/1DFMjhcbA-zybc7bCF92o0tyWMk=/800x0/smart/filters:strip_exif()/file/attachments/orphans/TRACKERWIDGET-FRAME1_752335.jpg",
       "https://cdn.dailymaverick.co.za/i/ZfJzqLm0rLXPthzH8C5xFHKtEF8=/800x0/smart/filters:strip_exif()/file/attachments/orphans/TRACKERWIDGET-FRAME2_101729.jpg",
@@ -114,55 +103,45 @@
     const nextButton = document.querySelector('.carousel-chevron.next');
     const progressBar = document.getElementById('carousel-progress-bar');
 
-    // Function to instantly update image, chevrons, and progress bar
     function updateImage(index) {
-      // Handle index bounds
       if (index < 0) { index = 0; } 
       else if (index >= images.length) { index = images.length - 1; }
       
       currentIndex = index;
-      
-      // Instant image snap
       imgElement.src = images[currentIndex];
       imgElement.alt = `Slide ${currentIndex + 1}`;
 
-      // Update chevron disabled states
       if (currentIndex === 0) { prevButton.classList.add('disabled'); } 
       else { prevButton.classList.remove('disabled'); }
 
       if (currentIndex === images.length - 1) { nextButton.classList.add('disabled'); } 
       else { nextButton.classList.remove('disabled'); }
 
-      // Update Progress Bar Width
       const progressPercentage = ((currentIndex + 1) / images.length) * 100;
       progressBar.style.width = `${progressPercentage}%`;
     }
 
-    // Automatic cycle function
     function startCarousel() {
       clearInterval(carouselInterval); 
       carouselInterval = setInterval(() => {
-        // Calculate next index with wrap-around for auto-play
         let nextIndex = currentIndex + 1;
         if (nextIndex >= images.length) {
             nextIndex = 0;
         }
         updateImage(nextIndex);
-      }, 3000); // 3000ms = 3 seconds
+      }, 3000);
     }
 
-    // Manual Navigation Event Listeners
     prevButton.addEventListener('click', () => {
       updateImage(currentIndex - 1);
-      startCarousel(); // Reset timer after manual interaction
+      startCarousel();
     });
 
     nextButton.addEventListener('click', () => {
       updateImage(currentIndex + 1);
-      startCarousel(); // Reset timer after manual interaction
+      startCarousel();
     });
 
-    // Initialize widget
     updateImage(0);
     startCarousel();
   </script>
